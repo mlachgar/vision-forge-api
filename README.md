@@ -88,6 +88,7 @@ This repository includes two GitHub Actions workflows:
 
 - `.github/workflows/ci.yml`
 - `.github/workflows/docker-publish.yml`
+- `.github/workflows/docker-smoke.yml`
 
 Badge templates (replace `<owner>` and `<repo>`):
 
@@ -112,7 +113,19 @@ What it runs:
 6. Config validation (`scripts/validate_config.py`)
 7. Test suite (`pytest`) with artifact upload
 8. Dependency audit (`pip-audit`, non-blocking)
-9. Docker smoke build for `cpu-lite` (no push)
+
+### Docker smoke workflow (`docker-smoke.yml`)
+
+Triggers:
+
+- Automatically after `CI` completes successfully (`workflow_run`)
+- Manual run (`workflow_dispatch`)
+
+What it runs:
+
+1. Checkout the exact commit SHA from the completed CI run
+2. Build `cpu-lite` image from `docker/Dockerfile` (no push)
+3. Uses Buildx + GHA cache
 
 ### Docker publish workflow (`docker-publish.yml`)
 
