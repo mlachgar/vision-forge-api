@@ -21,6 +21,12 @@ from vision_forge_api.config.loader import ConfigLoader
 LOGGER = logging.getLogger("validate_config")
 
 
+def _resolve_runtime_data_path(path: Path, data_dir: Path) -> Path:
+    if path.is_absolute() and path.parts[:2] == ("/", "data"):
+        return data_dir / path.relative_to("/data")
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Ensure config files and directories meet expectations."
@@ -47,12 +53,17 @@ def main() -> int:
         LOGGER.warning("All API keys are disabled; enable at least one entry")
     LOGGER.info("Found %d API key entries", len(entries))
 
-    for path in (settings.embeddings_dir, settings.model_cache_dir):
-        if not path.exists():
-            LOGGER.info("Creating missing data directory %s", path)
-            path.mkdir(parents=True, exist_ok=True)
-        if not path.is_dir():
-            LOGGER.error("Expected %s to be a directory", path)
+    for configured_path in (settings.embeddings_dir, settings.model_cache_dir):
+        runtime_path = _resolve_runtime_data_path(configured_path, data_dir)
+        if not runtime_path.exists():
+            LOGGER.info(
+                "Creating missing data directory %s (configured as %s)",
+                runtime_path,
+                configured_path,
+            )
+            runtime_path.mkdir(parents=True, exist_ok=True)
+        if not runtime_path.is_dir():
+            LOGGER.error("Expected %s to be a directory", runtime_path)
             return 1
     LOGGER.info("Config validation succeeded")
     return 0
