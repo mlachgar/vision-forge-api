@@ -10,3 +10,12 @@ repos:
       - id: ruff
         name: ruff-lint
         files: ^(src|tests|scripts)/
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: ./.venv/bin/python -m mypy
+        language: system
+        pass_filenames: false
+        files: ^src/

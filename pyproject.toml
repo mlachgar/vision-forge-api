@@ -38,6 +38,8 @@ dev = [
     "pytest-asyncio==0.22.0",
     "ruff==0.15.6",
     "mypy==1.10.1",
+    "types-Pillow==10.2.0.20240822",
+    "types-PyYAML==6.0.12.20250915",
     "httpx==0.28.1",
 ]
 
@@ -50,3 +52,16 @@ vision-forge-api = "vision_forge_api.main:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["vision_forge_api", "vision_forge_api.*"]
+
+[tool.setuptools.package-data]
+vision_forge_api = ["py.typed"]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+files = ["src"]
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["transformers", "transformers.*"]
+ignore_missing_imports = true

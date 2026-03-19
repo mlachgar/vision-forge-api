@@ -17,7 +17,7 @@ def _context_from_request(request: Request) -> AppContext:
 def require_api_key(
     request: Request,
     required_role: AuthRole | None = None,
-    context: AppContext | None = Depends(_context_from_request),
+    context: AppContext = Depends(_context_from_request),
 ) -> ApiKeyEntry:
     header_value = request.headers.get("authorization")
     try:

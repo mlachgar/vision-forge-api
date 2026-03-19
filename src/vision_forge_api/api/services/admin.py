@@ -15,7 +15,7 @@ from ..errors import ApiKeyNotFoundError, ConflictError
 class CreatedApiKey:
     name: str
     token: str
-    roles: tuple[AuthRole, ...] | tuple[str, ...]
+    roles: tuple[AuthRole, ...]
     enabled: bool
 
 
@@ -31,7 +31,7 @@ class AdminService:
     def create_api_key(
         self,
         name: str,
-        roles: tuple[AuthRole, ...] | tuple[str, ...] | None,
+        roles: tuple[AuthRole, ...] | None,
         enabled: bool | None,
     ) -> CreatedApiKey:
         entries = self._context.api_key_repo.read_all()
@@ -39,7 +39,9 @@ class AdminService:
             raise ConflictError("API key with that name already exists")
 
         effective_roles = (
-            roles if roles is not None else self._context.auth_config.default_roles
+            roles
+            if roles is not None
+            else tuple(self._context.auth_config.default_roles)
         )
         effective_enabled = enabled if enabled is not None else True
 
