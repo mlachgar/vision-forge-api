@@ -1,0 +1,22 @@
+profiles:
+  - name: pet-profile
+    description: Tags useful for pet apps
+    tag_sets:
+      - animals
+  - name: transport
+    description: Vehicle-focused tags
+    tag_sets:
+      - vehicles
+  - name: default
+    description: Includes every supported tag set for broad coverage
+    tag_sets:
+      - animals
+      - vehicles
+      - food_and_drink
+      - objects_and_lifestyle
+      - nature_landscapes
+      - people_and_activities
+      - health_and_fitness
+      - technology_and_industry
+      - places_architecture
+      - arts_entertainment

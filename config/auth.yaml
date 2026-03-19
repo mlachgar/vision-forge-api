@@ -1,0 +1,6 @@
+token_prefix: vfk_
+token_length: 32
+admin_roles:
+  - admin
+default_roles:
+  - predict

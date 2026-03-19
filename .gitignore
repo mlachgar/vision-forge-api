@@ -10,10 +10,7 @@ __pycache__/
 .hatch/
 
 # Config and runtime data
-config/
 data/
-!src/vision_forge_api/config/
-!src/vision_forge_api/config/*.py
 
 # Docker artifacts
 docker/*.tar
