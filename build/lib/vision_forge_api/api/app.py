@@ -10,6 +10,7 @@ from fastapi import FastAPI
 
 from ..config.loader import ConfigLoader
 from .context_builder import build_context
+from .errors import register_exception_handlers
 from .routers.admin import router as admin_router
 from .routers.catalog import router as catalog_router
 from .routers.health import router as health_router
@@ -35,6 +36,7 @@ def create_app(config_dir: Path | str | None = None) -> FastAPI:
         version=app_version,
         description="SigLIP-powered image tagging REST API",
     )
+    register_exception_handlers(app)
     app.state.context = context
     app.include_router(health_router)
     app.include_router(catalog_router)

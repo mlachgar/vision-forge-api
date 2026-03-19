@@ -1,7 +1,5 @@
 """Tag catalog endpoints."""
 
-from __future__ import annotations
-
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 

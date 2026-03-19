@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from vision_forge_api.auth.cache import ApiKeyRepository, AuthCache, AuthTokenManager
+from ..auth.cache import ApiKeyRepository, AuthCache, AuthTokenManager
 from ..catalog.service import TagCatalog
 from ..config.loader import ConfigLoader
 from ..predict.service import PredictionService

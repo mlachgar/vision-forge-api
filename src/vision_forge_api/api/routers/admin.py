@@ -5,9 +5,9 @@ from typing import Iterable, Sequence
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel
 
-from vision_forge_api.auth.deps import require_admin
-from vision_forge_api.auth.models import ApiKeyEntry
-from vision_forge_api.config.schema import AuthRole
+from ...auth.deps import require_admin
+from ...auth.models import ApiKeyEntry
+from ...config.schema import AuthRole
 from ..context import AppContext
 from ..services.admin import AdminService
 

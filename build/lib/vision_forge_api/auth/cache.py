@@ -6,6 +6,8 @@ import hashlib
 import json
 import os
 import secrets
+from dataclasses import dataclass
+from http import HTTPStatus
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -20,6 +22,13 @@ TokenHash = str
 
 class AuthError(Exception):
     """Raised when a token cannot be validated."""
+
+
+@dataclass(frozen=True)
+class AuthorizationResult:
+    status_code: int
+    entry: ApiKeyEntry | None = None
+    detail: str = ""
 
 
 class AuthTokenManager:
@@ -80,7 +89,9 @@ class ApiKeyRepository:
         return self._path
 
     def read_all(self) -> list[ApiKeyEntry]:
-        return [ApiKeyEntry.model_validate(entry) for entry in _read_entries(self._path)]
+        return [
+            ApiKeyEntry.model_validate(entry) for entry in _read_entries(self._path)
+        ]
 
     def persist(self, entries: Iterable[ApiKeyEntry]) -> None:
         payload = [entry.model_dump() for entry in entries]
@@ -111,13 +122,22 @@ class AuthCache:
     def lookup(self, key_hash: TokenHash) -> ApiKeyEntry | None:
         return self._entries.get(key_hash)
 
-    def authorize(self, token: str, required_role: AuthRole | None = None) -> ApiKeyEntry:
+    def authorize(
+        self, token: str, required_role: AuthRole | None = None
+    ) -> AuthorizationResult:
         key_hash = hash_token(token)
         entry = self.lookup(key_hash)
         if entry is None:
-            raise AuthError("API key not found")
+            return AuthorizationResult(
+                status_code=HTTPStatus.UNAUTHORIZED, detail="API key not found"
+            )
         if not entry.enabled:
-            raise AuthError("API key is disabled")
+            return AuthorizationResult(
+                status_code=HTTPStatus.UNAUTHORIZED, detail="API key is disabled"
+            )
         if required_role and required_role not in entry.roles:
-            raise AuthError("API key lacks the required role")
-        return entry
+            return AuthorizationResult(
+                status_code=HTTPStatus.FORBIDDEN,
+                detail="API key lacks the required role",
+            )
+        return AuthorizationResult(status_code=HTTPStatus.OK, entry=entry)

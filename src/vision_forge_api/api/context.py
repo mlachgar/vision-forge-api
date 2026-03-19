@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from vision_forge_api.auth.cache import ApiKeyRepository, AuthCache, AuthTokenManager
+from ..auth.cache import ApiKeyRepository, AuthCache, AuthTokenManager
 from ..catalog.service import TagCatalog
 from ..config.loader import ConfigLoader
 from ..config.schema import AuthConfig, SettingsConfig

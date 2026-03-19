@@ -18,6 +18,9 @@ jobs:
   quality:
     name: Lint, Type, Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     env:
       PYTHON_VERSION: "3.12.13"
       PYTHONPATH: src
@@ -65,6 +68,16 @@ jobs:
         run: |
           python -m pip install pip-audit==2.9.0
           python -m pip_audit
+
+      - name: Cancel workflow run if quality failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
 
   docker-smoke:
     name: Docker smoke build (cpu-lite)

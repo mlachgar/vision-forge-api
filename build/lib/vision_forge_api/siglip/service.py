@@ -25,6 +25,7 @@ class SiglipService:
     """Wraps the SigLIP processor/model for encoding."""
 
     def __init__(self, model_id: str, cache_dir: Path, device_hint: str | None = None):
+        self.model_id = model_id
         self.device = _resolve_device(device_hint)
         self.processor = SiglipProcessor.from_pretrained(
             model_id,
@@ -49,7 +50,10 @@ class SiglipService:
     def encode_texts(self, texts: Sequence[str]) -> torch.Tensor:
         if not texts:
             return torch.empty(0, device=self.device)
-        inputs = self.processor(text=list(texts), padding=True, truncation=True, return_tensors="pt")
+        # SigLIP is calibrated with fixed-length text inputs; dynamic padding degrades retrieval quality.
+        inputs = self.processor(
+            text=list(texts), padding="max_length", truncation=True, return_tensors="pt"
+        )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         with torch.no_grad():
             features = self.model.get_text_features(**inputs)

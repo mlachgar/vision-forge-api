@@ -3,8 +3,8 @@
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from pydantic import BaseModel, Field
 
-from vision_forge_api.auth.deps import require_predict
-from vision_forge_api.auth.models import ApiKeyEntry
+from ...auth.deps import require_predict
+from ...auth.models import ApiKeyEntry
 from ..context import AppContext
 from ..services.predict import PredictRequestService
 
