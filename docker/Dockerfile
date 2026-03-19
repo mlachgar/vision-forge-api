@@ -3,11 +3,13 @@
 ARG PYTHON_VERSION=3.12
 ARG DEVICE=cpu
 ARG BUNDLE_MODEL=false
+ARG SIGLIP_MODEL_ID=google/siglip-base-patch16-224
 
 FROM python:${PYTHON_VERSION}-slim AS runtime
 
 ARG DEVICE
 ARG BUNDLE_MODEL
+ARG SIGLIP_MODEL_ID
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -24,9 +26,8 @@ RUN addgroup --system app \
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY scripts ./scripts
-COPY config /config
 
-RUN mkdir -p /data/embeddings /data/model_cache \
+RUN mkdir -p /config /data/embeddings /data/model_cache \
     && chown -R app:app /app /config /data
 
 USER app
@@ -34,9 +35,8 @@ USER app
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --user . \
     && if [ "$BUNDLE_MODEL" = "true" ]; then \
-         PYTHONPATH=src python scripts/precompute_embeddings.py \
-           --config-dir /config \
-           --embeddings-dir /data/embeddings \
+         PYTHONPATH=src python scripts/bundle_model.py \
+           --model-id "$SIGLIP_MODEL_ID" \
            --model-cache-dir /data/model_cache \
            --device cpu; \
        fi
