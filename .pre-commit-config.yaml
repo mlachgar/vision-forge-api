@@ -15,7 +15,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: ./.venv/bin/python -m mypy
+        entry: env MYPYPATH=src ./.venv/bin/python -m mypy --config-file mypy.ini
         language: system
         pass_filenames: false
         files: ^src/

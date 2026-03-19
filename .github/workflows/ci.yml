@@ -44,7 +44,7 @@ jobs:
         run: python -m ruff format --check src tests scripts
 
       - name: Type check
-        run: python -m mypy src
+        run: MYPYPATH=src python -m mypy --config-file mypy.ini
 
       - name: Validate configuration
         run: python scripts/validate_config.py --config-dir config --data-dir data
