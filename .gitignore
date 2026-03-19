@@ -18,3 +18,4 @@ docker/*.tar
 # IDE
 .vscode/
 .idea/
+.coverage
