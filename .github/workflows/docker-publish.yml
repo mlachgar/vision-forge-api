@@ -48,13 +48,18 @@ jobs:
       - name: Resolve image coordinates
         id: image
         env:
-          NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE != '' && vars.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          if [ -z "${NAMESPACE}" ]; then
+          namespace="${DOCKERHUB_NAMESPACE}"
+          if [ -z "${namespace}" ]; then
+            namespace="${DOCKERHUB_USERNAME}"
+          fi
+          if [ -z "${namespace}" ]; then
             echo "DOCKERHUB_NAMESPACE variable (or DOCKERHUB_USERNAME secret) must be set." >&2
             exit 1
           fi
-          echo "image=${NAMESPACE}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "image=${namespace}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Compute Docker tags
         id: tags
