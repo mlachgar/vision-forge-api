@@ -58,6 +58,19 @@ jobs:
         with:
           python-version: "3.12.13"
 
+      - name: Detect release tag on commit
+        id: commit_tag
+        run: |
+          git fetch --force --tags --depth=1
+          tag="$(git tag --points-at "${GITHUB_SHA}" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$' | head -n1 || true)"
+          if [ -n "${tag}" ]; then
+            echo "has_release_tag=true" >> "${GITHUB_OUTPUT}"
+            echo "release_tag=${tag}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "has_release_tag=false" >> "${GITHUB_OUTPUT}"
+            echo "release_tag=" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Resolve image coordinates
         id: image
         env:
@@ -75,6 +88,9 @@ jobs:
           extra_args=()
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.publish_edge || 'false' }}" = "true" ]; then
             extra_args+=(--publish-edge-from-dispatch)
+          fi
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ steps.commit_tag.outputs.has_release_tag }}" = "true" ]; then
+            extra_args+=(--disable-edge)
           fi
 
           python scripts/ci/compute_docker_tags.py \

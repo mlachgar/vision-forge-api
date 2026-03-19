@@ -35,6 +35,7 @@ def _compute_tags(
     latest_variant: str,
     release_tag: str | None,
     publish_edge_from_dispatch: bool,
+    disable_edge: bool,
 ) -> tuple[list[str], str | None]:
     version = _parse_release_version(ref, release_tag)
     if version:
@@ -46,10 +47,10 @@ def _compute_tags(
             tags.append(f"{image}:latest")
         return tags, version
 
-    if event_name == "push" and ref == "refs/heads/main":
+    if event_name == "push" and ref == "refs/heads/main" and not disable_edge:
         return [f"{image}:edge-{variant}"], None
 
-    if event_name == "workflow_dispatch" and publish_edge_from_dispatch:
+    if event_name == "workflow_dispatch" and publish_edge_from_dispatch and not disable_edge:
         return [f"{image}:edge-{variant}"], None
 
     return [], None
@@ -73,6 +74,7 @@ def main() -> int:
     parser.add_argument("--release-tag", default=None)
     parser.add_argument("--latest-variant", default="cpu-full")
     parser.add_argument("--publish-edge-from-dispatch", action="store_true")
+    parser.add_argument("--disable-edge", action="store_true")
     args = parser.parse_args()
 
     try:
@@ -84,6 +86,7 @@ def main() -> int:
             latest_variant=args.latest_variant,
             release_tag=args.release_tag,
             publish_edge_from_dispatch=args.publish_edge_from_dispatch,
+            disable_edge=args.disable_edge,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
