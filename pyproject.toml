@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vision-forge-api"
+version = "0.1.0"
+description = "Production-ready REST API for SigLIP-powered image tagging."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Apache-2.0" }
+authors = [ { name = "Vision Forge Team" } ]
+keywords = ["siglip", "image", "tagging", "fastapi"]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+]
+
+dependencies = [
+    "fastapi==0.111.0",
+    "uvicorn[standard]==0.23.0",
+    "pydantic==2.8.1",
+    "pydantic-settings==2.0.0",
+    "torch==2.2.0",
+    "transformers==4.41.0",
+    "pillow==10.1.0",
+    "pyyaml==6.0.3",
+    "httpx==0.28.1",
+    "python-multipart==0.0.22",
+    "numpy==1.26.3",
+    "sentencepiece==0.2.1",
+    "protobuf==4.24.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.4.0",
+    "pytest-asyncio==0.22.0",
+    "ruff==0.15.6",
+    "mypy==1.10.1",
+    "httpx==0.28.1",
+]
+
+[project.scripts]
+vision-forge-api = "vision_forge_api.main:main"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["vision_forge_api", "vision_forge_api.*"]

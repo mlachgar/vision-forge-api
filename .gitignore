@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hatch/
+
+# Config and runtime data
+config/
+data/
+
+# Docker artifacts
+docker/*.tar
+
+# IDE
+.vscode/
+.idea/
