@@ -50,7 +50,11 @@ def _compute_tags(
     if event_name == "push" and ref == "refs/heads/main" and not disable_edge:
         return [f"{image}:edge-{variant}"], None
 
-    if event_name == "workflow_dispatch" and publish_edge_from_dispatch and not disable_edge:
+    if (
+        event_name == "workflow_dispatch"
+        and publish_edge_from_dispatch
+        and not disable_edge
+    ):
         return [f"{image}:edge-{variant}"], None
 
     return [], None
@@ -66,7 +70,9 @@ def _write_output(name: str, value: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Compute Docker tag list for the current build context.")
+    parser = argparse.ArgumentParser(
+        description="Compute Docker tag list for the current build context."
+    )
     parser.add_argument("--event-name", required=True)
     parser.add_argument("--ref", required=True)
     parser.add_argument("--variant", required=True)

@@ -55,11 +55,15 @@ def test_score_image_uses_balancing_when_multiple_sets() -> None:
         ["a1", "b1"],
     )
     service._score_candidates = lambda image_vector, all_vectors: [0.9, 0.8]
-    service._rerank_top_canonical = lambda score_values, canonical_sources, image_vector, limit: None
-    service._build_predictions = lambda all_labels, all_is_extra, score_values, min_score: [
-        Prediction(canonical_tag="a1", score=0.9, is_extra=False),
-        Prediction(canonical_tag="b1", score=0.8, is_extra=False),
-    ]
+    service._rerank_top_canonical = (
+        lambda score_values, canonical_sources, image_vector, limit: None
+    )
+    service._build_predictions = (
+        lambda all_labels, all_is_extra, score_values, min_score: [
+            Prediction(canonical_tag="a1", score=0.9, is_extra=False),
+            Prediction(canonical_tag="b1", score=0.8, is_extra=False),
+        ]
+    )
     service._crosses_multiple_sets = lambda results: True
     service._balance_results_by_set = lambda ranked, limit: [
         Prediction(canonical_tag="b1", score=0.8, is_extra=False),

@@ -23,7 +23,9 @@ def _read_project_version(pyproject_path: Path) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Ensure release tag matches pyproject version.")
+    parser = argparse.ArgumentParser(
+        description="Ensure release tag matches pyproject version."
+    )
     parser.add_argument("--tag", required=True, help="Git tag, for example v1.2.3")
     parser.add_argument("--pyproject", type=Path, default=Path("pyproject.toml"))
     args = parser.parse_args()

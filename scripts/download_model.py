@@ -21,16 +21,28 @@ LOGGER = logging.getLogger("download_model")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Ensure the SigLIP model weights are cached locally.")
-    parser.add_argument("--config-dir", type=Path, default=Path("/config"), help="Mounted /config path")
-    parser.add_argument("--device", default=None, help="Preferred device (cpu, cuda, etc.)")
+    parser = argparse.ArgumentParser(
+        description="Ensure the SigLIP model weights are cached locally."
+    )
+    parser.add_argument(
+        "--config-dir", type=Path, default=Path("/config"), help="Mounted /config path"
+    )
+    parser.add_argument(
+        "--device", default=None, help="Preferred device (cpu, cuda, etc.)"
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
     loader = ConfigLoader(args.config_dir)
     settings = loader.load_settings()
-    SiglipService(settings.siglip_model_id, settings.model_cache_dir, device_hint=args.device)
-    LOGGER.info("Model %s is available in %s", settings.siglip_model_id, settings.model_cache_dir)
+    SiglipService(
+        settings.siglip_model_id, settings.model_cache_dir, device_hint=args.device
+    )
+    LOGGER.info(
+        "Model %s is available in %s",
+        settings.siglip_model_id,
+        settings.model_cache_dir,
+    )
     return 0
 
 

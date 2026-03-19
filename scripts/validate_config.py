@@ -22,9 +22,15 @@ LOGGER = logging.getLogger("validate_config")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Ensure config files and directories meet expectations.")
-    parser.add_argument("--config-dir", type=Path, default=Path("/config"), help="Mounted /config path")
-    parser.add_argument("--data-dir", type=Path, default=Path("/data"), help="Mounted /data path")
+    parser = argparse.ArgumentParser(
+        description="Ensure config files and directories meet expectations."
+    )
+    parser.add_argument(
+        "--config-dir", type=Path, default=Path("/config"), help="Mounted /config path"
+    )
+    parser.add_argument(
+        "--data-dir", type=Path, default=Path("/data"), help="Mounted /data path"
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)

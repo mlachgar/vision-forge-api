@@ -41,9 +41,13 @@ def require_api_key(
     )
 
 
-def require_admin(request: Request, context: AppContext = Depends(_context_from_request)) -> ApiKeyEntry:
+def require_admin(
+    request: Request, context: AppContext = Depends(_context_from_request)
+) -> ApiKeyEntry:
     return require_api_key(request, required_role=AuthRole.ADMIN, context=context)
 
 
-def require_predict(request: Request, context: AppContext = Depends(_context_from_request)) -> ApiKeyEntry:
+def require_predict(
+    request: Request, context: AppContext = Depends(_context_from_request)
+) -> ApiKeyEntry:
     return require_api_key(request, required_role=AuthRole.PREDICT, context=context)

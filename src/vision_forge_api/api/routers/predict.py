@@ -61,7 +61,10 @@ async def predict(
     )
 
     return PredictResponse(
-        tags=[TagResult(label=prediction.canonical_tag, score=prediction.score) for prediction in predictions],
+        tags=[
+            TagResult(label=prediction.canonical_tag, score=prediction.score)
+            for prediction in predictions
+        ],
         meta=PredictMeta(
             profile=profile,
             tag_sets=list(prepared.selected_tag_sets),

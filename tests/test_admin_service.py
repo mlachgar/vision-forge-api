@@ -52,7 +52,9 @@ def _context(entries: list[ApiKeyEntry]) -> SimpleNamespace:
 
 
 def _entry(name: str) -> ApiKeyEntry:
-    return ApiKeyEntry(name=name, key_hash=f"sha256:{name}", roles=("predict",), enabled=True)
+    return ApiKeyEntry(
+        name=name, key_hash=f"sha256:{name}", roles=("predict",), enabled=True
+    )
 
 
 def test_update_missing_api_key_raises_centralized_not_found_error() -> None:

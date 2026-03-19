@@ -33,12 +33,16 @@ class Prediction:
 class PredictionService:
     """Scores images against canonical and custom tag embeddings."""
 
-    def __init__(self, catalog: TagCatalog, siglip: SiglipService, embeddings_dir: Path) -> None:
+    def __init__(
+        self, catalog: TagCatalog, siglip: SiglipService, embeddings_dir: Path
+    ) -> None:
         self._catalog = catalog
         self._siglip = siglip
         self._store = EmbeddingStore(embeddings_dir)
         self._vectors: dict[str, torch.Tensor] = self._build_vector_cache()
-        self._prompt_vectors: dict[str, torch.Tensor] = self._build_prompt_vector_cache()
+        self._prompt_vectors: dict[str, torch.Tensor] = (
+            self._build_prompt_vector_cache()
+        )
         self._canonical_primary_set: dict[str, str] = self._build_primary_set_index()
 
     def _build_vector_cache(self) -> dict[str, torch.Tensor]:
@@ -46,14 +50,21 @@ class PredictionService:
         metadata = self._store.load_metadata()
         format_version = int(metadata.get("format_version", 0))
         model_id = str(metadata.get("model_id", "")).strip()
-        reset_vectors = format_version != TEXT_EMBEDDING_FORMAT_VERSION or model_id != self._siglip.model_id
+        reset_vectors = (
+            format_version != TEXT_EMBEDDING_FORMAT_VERSION
+            or model_id != self._siglip.model_id
+        )
         if reset_vectors:
             raw = {}
         missing = tuple(tag for tag in self._catalog.canonical_tags() if tag not in raw)
         if missing:
             computed = self._compute_missing_embeddings(missing)
             raw.update(computed)
-            self._store.persist(raw, model_id=self._siglip.model_id, format_version=TEXT_EMBEDDING_FORMAT_VERSION)
+            self._store.persist(
+                raw,
+                model_id=self._siglip.model_id,
+                format_version=TEXT_EMBEDDING_FORMAT_VERSION,
+            )
         return {
             tag: torch.tensor(vector, device=self._siglip.device)
             for tag, vector in raw.items()
@@ -65,7 +76,9 @@ class PredictionService:
         except Exception:
             return prompt.template
 
-    def _compute_missing_embeddings(self, tags: Iterable[str]) -> dict[str, tuple[float, ...]]:
+    def _compute_missing_embeddings(
+        self, tags: Iterable[str]
+    ) -> dict[str, tuple[float, ...]]:
         computed: dict[str, tuple[float, ...]] = {}
         for tag in tags:
             prompts = self._catalog.prompts_for_tag(tag)
@@ -83,9 +96,12 @@ class PredictionService:
                 texts = [DEFAULT_EXTRA_PROMPT.format(tag=tag)]
                 weights = [1.0]
             embeddings = self._siglip.encode_texts(texts)
-            weight_tensor = torch.tensor(weights, dtype=torch.float32, device=self._siglip.device)
+            weight_tensor = torch.tensor(
+                weights, dtype=torch.float32, device=self._siglip.device
+            )
             averaged = F.normalize(
-                (embeddings * weight_tensor.unsqueeze(1)).sum(dim=0) / weight_tensor.sum().clamp_min(1e-6),
+                (embeddings * weight_tensor.unsqueeze(1)).sum(dim=0)
+                / weight_tensor.sum().clamp_min(1e-6),
                 dim=-1,
             )
             computed[tag] = tuple(float(val) for val in averaged.cpu().tolist())
@@ -112,33 +128,43 @@ class PredictionService:
                 index.setdefault(tag, tag_set.name)
         return index
 
-    def _adjusted_set_score(self, item: Prediction, set_counts: dict[str, int]) -> float:
+    def _adjusted_set_score(
+        self, item: Prediction, set_counts: dict[str, int]
+    ) -> float:
         if item.is_extra:
             return item.score
         set_name = self._canonical_primary_set.get(item.canonical_tag)
         penalty = SET_BALANCE_PENALTY * set_counts.get(set_name or "", 0)
         return item.score - penalty
 
-    def _pick_best_candidate_index(self, remaining: list[Prediction], set_counts: dict[str, int]) -> int:
+    def _pick_best_candidate_index(
+        self, remaining: list[Prediction], set_counts: dict[str, int]
+    ) -> int:
         best_idx = 0
         best_adjusted = float("-inf")
         best_raw = float("-inf")
         for idx, item in enumerate(remaining):
             adjusted = self._adjusted_set_score(item, set_counts)
-            if adjusted > best_adjusted or (adjusted == best_adjusted and item.score > best_raw):
+            if adjusted > best_adjusted or (
+                adjusted == best_adjusted and item.score > best_raw
+            ):
                 best_idx = idx
                 best_adjusted = adjusted
                 best_raw = item.score
         return best_idx
 
-    def _register_selected_set(self, selected: Prediction, set_counts: dict[str, int]) -> None:
+    def _register_selected_set(
+        self, selected: Prediction, set_counts: dict[str, int]
+    ) -> None:
         if selected.is_extra:
             return
         set_name = self._canonical_primary_set.get(selected.canonical_tag)
         if set_name:
             set_counts[set_name] = set_counts.get(set_name, 0) + 1
 
-    def _balance_results_by_set(self, ranked: list[Prediction], limit: int) -> list[Prediction]:
+    def _balance_results_by_set(
+        self, ranked: list[Prediction], limit: int
+    ) -> list[Prediction]:
         max_items = max(1, limit)
         remaining = list(ranked)
         selected: list[Prediction] = []
@@ -172,7 +198,9 @@ class PredictionService:
         return all_vectors, all_labels, all_is_extra, canonical_sources
 
     @staticmethod
-    def _score_candidates(image_vector: torch.Tensor, all_vectors: list[torch.Tensor]) -> list[float]:
+    def _score_candidates(
+        image_vector: torch.Tensor, all_vectors: list[torch.Tensor]
+    ) -> list[float]:
         candidate_tensor = torch.stack(all_vectors, dim=0)
         scores_tensor = torch.matmul(candidate_tensor, image_vector.T).squeeze(-1)
         return scores_tensor.tolist()
@@ -186,8 +214,14 @@ class PredictionService:
     ) -> None:
         if not canonical_sources:
             return
-        ranked_idx = sorted(range(len(canonical_sources)), key=lambda idx: score_values[idx], reverse=True)
-        rerank_pool = min(len(ranked_idx), max(limit * RERANK_POOL_MULTIPLIER, RERANK_POOL_MIN))
+        ranked_idx = sorted(
+            range(len(canonical_sources)),
+            key=lambda idx: score_values[idx],
+            reverse=True,
+        )
+        rerank_pool = min(
+            len(ranked_idx), max(limit * RERANK_POOL_MULTIPLIER, RERANK_POOL_MIN)
+        )
         for idx in ranked_idx[:rerank_pool]:
             label = canonical_sources[idx]
             prompt_vectors = self._prompt_vectors.get(label)
@@ -198,13 +232,18 @@ class PredictionService:
 
     @staticmethod
     def _build_predictions(
-        all_labels: list[str], all_is_extra: list[bool], score_values: list[float], min_score: float
+        all_labels: list[str],
+        all_is_extra: list[bool],
+        score_values: list[float],
+        min_score: float,
     ) -> list[Prediction]:
         results: list[Prediction] = []
         for label, is_extra, score_value in zip(all_labels, all_is_extra, score_values):
             if score_value < min_score:
                 continue
-            results.append(Prediction(canonical_tag=label, score=score_value, is_extra=is_extra))
+            results.append(
+                Prediction(canonical_tag=label, score=score_value, is_extra=is_extra)
+            )
         results.sort(key=lambda item: item.score, reverse=True)
         return results
 
@@ -232,18 +271,28 @@ class PredictionService:
         limit: int,
     ) -> list[Prediction]:
         image_vector = self._siglip.encode_image(image)
-        all_vectors, all_labels, all_is_extra, canonical_sources = self._prepare_candidates(
-            canonical_tags=canonical_tags, extra_labels=extra_labels
+        all_vectors, all_labels, all_is_extra, canonical_sources = (
+            self._prepare_candidates(
+                canonical_tags=canonical_tags, extra_labels=extra_labels
+            )
         )
         if not all_vectors:
             return []
-        score_values = self._score_candidates(image_vector=image_vector, all_vectors=all_vectors)
+        score_values = self._score_candidates(
+            image_vector=image_vector, all_vectors=all_vectors
+        )
         self._rerank_top_canonical(
-            score_values=score_values, canonical_sources=canonical_sources, image_vector=image_vector, limit=limit
+            score_values=score_values,
+            canonical_sources=canonical_sources,
+            image_vector=image_vector,
+            limit=limit,
         )
         results = self._build_predictions(
-            all_labels=all_labels, all_is_extra=all_is_extra, score_values=score_values, min_score=min_score
+            all_labels=all_labels,
+            all_is_extra=all_is_extra,
+            score_values=score_values,
+            min_score=min_score,
         )
         if self._crosses_multiple_sets(results):
             results = self._balance_results_by_set(results, limit)
-        return results[:max(1, limit)]
+        return results[: max(1, limit)]

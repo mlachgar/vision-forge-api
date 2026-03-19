@@ -39,13 +39,19 @@ class PredictRequestService:
         extra_tags: str | None,
     ) -> PreparedPredictionRequest:
         tag_set_names = self._split_csv(tag_sets)
-        canonical_tags = self._resolve_canonical_tags(profile=profile, tag_sets=tag_sets)
+        canonical_tags = self._resolve_canonical_tags(
+            profile=profile, tag_sets=tag_sets
+        )
         extras = tuple(self._split_csv(extra_tags))
         if not canonical_tags and not extras:
-            raise BadRequestError("At least one of profile, tag_sets, or extra_tags must be provided")
+            raise BadRequestError(
+                "At least one of profile, tag_sets, or extra_tags must be provided"
+            )
 
         limit_value = self._resolve_limit(limit)
-        min_score_value = self._resolve_min_score(min_score, self._context.settings.default_min_score)
+        min_score_value = self._resolve_min_score(
+            min_score, self._context.settings.default_min_score
+        )
         image = self._decode_image(file)
 
         return PreparedPredictionRequest(
@@ -57,7 +63,9 @@ class PredictRequestService:
             min_score=min_score_value,
         )
 
-    def _resolve_canonical_tags(self, profile: str | None, tag_sets: str | None) -> tuple[str, ...]:
+    def _resolve_canonical_tags(
+        self, profile: str | None, tag_sets: str | None
+    ) -> tuple[str, ...]:
         canonical_tags: list[str] = []
         if profile:
             try:

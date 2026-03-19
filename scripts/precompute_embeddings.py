@@ -20,7 +20,10 @@ if str(SRC_DIR) not in sys.path:
 from vision_forge_api.catalog.service import TagCatalog
 from vision_forge_api.config.loader import ConfigLoader
 from vision_forge_api.config.schema import TagPrompt
-from vision_forge_api.embeddings.store import EmbeddingStore, TEXT_EMBEDDING_FORMAT_VERSION
+from vision_forge_api.embeddings.store import (
+    EmbeddingStore,
+    TEXT_EMBEDDING_FORMAT_VERSION,
+)
 from vision_forge_api.siglip.service import SiglipService
 
 LOGGER = logging.getLogger("precompute_embeddings")
@@ -34,7 +37,9 @@ def _render_prompt(prompt: TagPrompt, tag: str) -> str:
         return prompt.template
 
 
-def _compute_vector(siglip: SiglipService, prompts: tuple[TagPrompt, ...], tag: str) -> tuple[float, ...]:
+def _compute_vector(
+    siglip: SiglipService, prompts: tuple[TagPrompt, ...], tag: str
+) -> tuple[float, ...]:
     if not prompts:
         prompts = (DEFAULT_PROMPT,)
     texts: list[str] = []
@@ -51,18 +56,38 @@ def _compute_vector(siglip: SiglipService, prompts: tuple[TagPrompt, ...], tag: 
     embeddings = siglip.encode_texts(texts)
     weight_tensor = torch.tensor(weights, dtype=torch.float32, device=siglip.device)
     averaged = F.normalize(
-        (embeddings * weight_tensor.unsqueeze(1)).sum(dim=0) / weight_tensor.sum().clamp_min(1e-6),
+        (embeddings * weight_tensor.unsqueeze(1)).sum(dim=0)
+        / weight_tensor.sum().clamp_min(1e-6),
         dim=-1,
     )
     return tuple(float(value) for value in averaged.cpu().tolist())
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate canonical tag embeddings using SigLIP prompts.")
-    parser.add_argument("--config-dir", type=Path, default=Path("/config"), help="Path to the mounted /config directory")
-    parser.add_argument("--device", default=None, help="Preferred device (e.g., cpu, cuda)")
-    parser.add_argument("--embeddings-dir", type=Path, default=None, help="Override the directory where embeddings are persisted")
-    parser.add_argument("--model-cache-dir", type=Path, default=None, help="Override the SigLIP cache directory")
+    parser = argparse.ArgumentParser(
+        description="Generate canonical tag embeddings using SigLIP prompts."
+    )
+    parser.add_argument(
+        "--config-dir",
+        type=Path,
+        default=Path("/config"),
+        help="Path to the mounted /config directory",
+    )
+    parser.add_argument(
+        "--device", default=None, help="Preferred device (e.g., cpu, cuda)"
+    )
+    parser.add_argument(
+        "--embeddings-dir",
+        type=Path,
+        default=None,
+        help="Override the directory where embeddings are persisted",
+    )
+    parser.add_argument(
+        "--model-cache-dir",
+        type=Path,
+        default=None,
+        help="Override the SigLIP cache directory",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -75,8 +100,12 @@ def main() -> int:
         overrides["model_cache_dir"] = args.model_cache_dir
     if overrides:
         settings = settings.model_copy(update=overrides)  # type: ignore[arg-type]
-    catalog = TagCatalog(loader.load_tag_sets(), loader.load_profiles(), loader.load_prompts())
-    siglip = SiglipService(settings.siglip_model_id, settings.model_cache_dir, device_hint=args.device)
+    catalog = TagCatalog(
+        loader.load_tag_sets(), loader.load_profiles(), loader.load_prompts()
+    )
+    siglip = SiglipService(
+        settings.siglip_model_id, settings.model_cache_dir, device_hint=args.device
+    )
     store = EmbeddingStore(settings.embeddings_dir)
     tags = catalog.canonical_tags()
     LOGGER.info("Precomputing embeddings for %d canonical tags", len(tags))

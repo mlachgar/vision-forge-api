@@ -29,7 +29,9 @@ class EmbeddingStore:
         raw = self._read_payload()
         vectors = raw.get("vectors", {})
         if not isinstance(vectors, dict):
-            raise ValueError("text_embeddings.json payload must contain a mapping under 'vectors'")
+            raise ValueError(
+                "text_embeddings.json payload must contain a mapping under 'vectors'"
+            )
         result: dict[str, tuple[float, ...]] = {}
         for key, value in vectors.items():
             if not isinstance(value, list):
@@ -58,7 +60,9 @@ class EmbeddingStore:
                 "format_version": int(format_version),
                 "model_id": model_id or "",
             },
-            "vectors": {key: [float(v) for v in values] for key, values in data.items()},
+            "vectors": {
+                key: [float(v) for v in values] for key, values in data.items()
+            },
         }
         temp_path = self._path.with_suffix(self._path.suffix + ".tmp")
         temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

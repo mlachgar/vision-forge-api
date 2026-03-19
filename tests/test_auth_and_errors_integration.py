@@ -24,7 +24,11 @@ def _build_auth_app() -> FastAPI:
     app.state.context = SimpleNamespace(auth_cache=AuthCache([entry]))
 
     @app.get("/admin-only")
-    def _admin_only(_: ApiKeyEntry = Depends(partial(require_api_key, required_role=AuthRole.ADMIN))) -> dict[str, str]:
+    def _admin_only(
+        _: ApiKeyEntry = Depends(
+            partial(require_api_key, required_role=AuthRole.ADMIN)
+        ),
+    ) -> dict[str, str]:
         return {"status": "ok"}
 
     return app
@@ -42,7 +46,9 @@ def test_require_api_key_missing_token_returns_401() -> None:
 def test_require_api_key_role_mismatch_returns_403() -> None:
     client = TestClient(_build_auth_app())
 
-    response = client.get("/admin-only", headers={"Authorization": "Bearer predict-token"})
+    response = client.get(
+        "/admin-only", headers={"Authorization": "Bearer predict-token"}
+    )
 
     assert response.status_code == 403
     assert response.json()["detail"] == "API key lacks the required role"

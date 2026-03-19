@@ -89,7 +89,9 @@ class ApiKeyRepository:
         return self._path
 
     def read_all(self) -> list[ApiKeyEntry]:
-        return [ApiKeyEntry.model_validate(entry) for entry in _read_entries(self._path)]
+        return [
+            ApiKeyEntry.model_validate(entry) for entry in _read_entries(self._path)
+        ]
 
     def persist(self, entries: Iterable[ApiKeyEntry]) -> None:
         payload = [entry.model_dump() for entry in entries]
@@ -120,13 +122,22 @@ class AuthCache:
     def lookup(self, key_hash: TokenHash) -> ApiKeyEntry | None:
         return self._entries.get(key_hash)
 
-    def authorize(self, token: str, required_role: AuthRole | None = None) -> AuthorizationResult:
+    def authorize(
+        self, token: str, required_role: AuthRole | None = None
+    ) -> AuthorizationResult:
         key_hash = hash_token(token)
         entry = self.lookup(key_hash)
         if entry is None:
-            return AuthorizationResult(status_code=HTTPStatus.UNAUTHORIZED, detail="API key not found")
+            return AuthorizationResult(
+                status_code=HTTPStatus.UNAUTHORIZED, detail="API key not found"
+            )
         if not entry.enabled:
-            return AuthorizationResult(status_code=HTTPStatus.UNAUTHORIZED, detail="API key is disabled")
+            return AuthorizationResult(
+                status_code=HTTPStatus.UNAUTHORIZED, detail="API key is disabled"
+            )
         if required_role and required_role not in entry.roles:
-            return AuthorizationResult(status_code=HTTPStatus.FORBIDDEN, detail="API key lacks the required role")
+            return AuthorizationResult(
+                status_code=HTTPStatus.FORBIDDEN,
+                detail="API key lacks the required role",
+            )
         return AuthorizationResult(status_code=HTTPStatus.OK, entry=entry)

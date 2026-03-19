@@ -38,13 +38,20 @@ class AdminService:
         if any(entry.name == name for entry in entries):
             raise ConflictError("API key with that name already exists")
 
-        effective_roles = roles if roles is not None else self._context.auth_config.default_roles
+        effective_roles = (
+            roles if roles is not None else self._context.auth_config.default_roles
+        )
         effective_enabled = enabled if enabled is not None else True
 
         token = self._context.token_manager.generate_token()
         key_hash = self._context.token_manager.hash_token(token)
 
-        created = ApiKeyEntry(name=name, key_hash=key_hash, roles=effective_roles, enabled=effective_enabled)
+        created = ApiKeyEntry(
+            name=name,
+            key_hash=key_hash,
+            roles=effective_roles,
+            enabled=effective_enabled,
+        )
         entries.append(created)
         self._persist_entries(entries)
 
@@ -58,7 +65,11 @@ class AdminService:
     def update_api_key_enabled(self, name: str, enabled: bool | None) -> ApiKeyEntry:
         entries = self._context.api_key_repo.read_all()
         idx = self._find_entry_index(entries, name)
-        updated = entries[idx] if enabled is None else entries[idx].model_copy(update={"enabled": enabled})
+        updated = (
+            entries[idx]
+            if enabled is None
+            else entries[idx].model_copy(update={"enabled": enabled})
+        )
         entries[idx] = updated
         self._persist_entries(entries)
         return updated

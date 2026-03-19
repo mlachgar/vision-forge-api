@@ -51,7 +51,9 @@ class SiglipService:
         if not texts:
             return torch.empty(0, device=self.device)
         # SigLIP is calibrated with fixed-length text inputs; dynamic padding degrades retrieval quality.
-        inputs = self.processor(text=list(texts), padding="max_length", truncation=True, return_tensors="pt")
+        inputs = self.processor(
+            text=list(texts), padding="max_length", truncation=True, return_tensors="pt"
+        )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         with torch.no_grad():
             features = self.model.get_text_features(**inputs)

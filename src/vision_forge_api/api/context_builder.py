@@ -14,13 +14,17 @@ from .context import AppContext
 
 def build_context(loader: ConfigLoader, app_version: str) -> AppContext:
     settings = loader.load_settings()
-    tag_catalog = TagCatalog(loader.load_tag_sets(), loader.load_profiles(), loader.load_prompts())
+    tag_catalog = TagCatalog(
+        loader.load_tag_sets(), loader.load_profiles(), loader.load_prompts()
+    )
     auth_config = loader.load_auth()
     token_manager = AuthTokenManager(auth_config)
     api_key_repo = ApiKeyRepository()
     auth_cache = AuthCache.from_repository(api_key_repo)
     device_hint = os.getenv("VISION_FORGE_DEVICE")
-    siglip = SiglipService(settings.siglip_model_id, settings.model_cache_dir, device_hint=device_hint)
+    siglip = SiglipService(
+        settings.siglip_model_id, settings.model_cache_dir, device_hint=device_hint
+    )
     prediction_service = PredictionService(tag_catalog, siglip, settings.embeddings_dir)
     return AppContext(
         loader=loader,
