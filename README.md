@@ -132,8 +132,7 @@ What it runs:
 Triggers:
 
 - Push tags matching `v*.*.*` (release publication)
-- Pushes to `main` (edge tags)
-- Manual run (`workflow_dispatch`)
+- Only publishes when the tagged commit belongs to `main`
 
 Build/publish behavior:
 
@@ -154,8 +153,6 @@ Tag rules:
   - `1.0.0-cpu-lite`, `1.0.0-cpu-full`, `1.0.0-gpu-lite`, `1.0.0-gpu-full`
   - `cpu-lite`, `cpu-full`, `gpu-lite`, `gpu-full`
 - `latest` is published only for `cpu-full`
-- Pushes to `main` publish edge tags:
-  - `edge-cpu-lite`, `edge-cpu-full`, `edge-gpu-lite`, `edge-gpu-full`
 
 ## Docker Hub Configuration
 
