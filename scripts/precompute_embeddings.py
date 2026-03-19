@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """Precompute and persist text embeddings derived from SigLIP prompts."""
 
 from __future__ import annotations
