@@ -21,3 +21,4 @@ build/
 .idea/
 .coverage
 test-results
+.DS_Store
