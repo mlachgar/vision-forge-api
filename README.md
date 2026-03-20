@@ -89,11 +89,12 @@ docker run --rm -it \
 
 ## CI/CD
 
-This repository includes three GitHub Actions workflows:
+This repository includes four GitHub Actions workflows:
 
 - `.github/workflows/ci.yml`
 - `.github/workflows/docker-publish.yml`
 - `.github/workflows/docker-smoke.yml`
+- `.github/workflows/published-docker-test.yml`
 
 Badge templates (replace `<owner>` and `<repo>`):
 
@@ -125,7 +126,7 @@ Required CI secret for the Sonar scan:
 
 - `SONAR_TOKEN`
 
-### Docker smoke workflow (`docker-smoke.yml`)
+### Docker build workflow (`docker-smoke.yml`)
 
 Triggers:
 
@@ -136,9 +137,21 @@ What it runs:
 
 1. Checkout the exact commit SHA from the completed CI run
 2. Build `cpu-lite` image from `docker/Dockerfile` (no push)
+3. Uses Buildx + GHA cache
+
+### Published Docker Test workflow (`published-docker-test.yml`)
+
+Triggers:
+
+- Automatically after `Docker Publish` completes successfully (`workflow_run`)
+- Manual run (`workflow_dispatch`)
+
+What it runs:
+
+1. Checkout the exact commit SHA from the completed publish run
+2. Pull the published `cpu-full` Docker image
 3. Runs a container smoke check against `/health`
 4. Runs one authenticated `/predict` request with a sample image from `samples/`
-5. Uses Buildx + GHA cache
 
 The smoke helper will bootstrap a local `data/` tree with demo API keys if the
 checkout does not already include one.

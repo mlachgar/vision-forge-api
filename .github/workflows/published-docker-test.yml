@@ -1,0 +1,49 @@
+name: Published Docker Test
+
+on:
+  workflow_run:
+    workflows: ["Docker Publish"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: published-docker-test-${{ github.event.workflow_run.head_branch || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  published-docker-test:
+    name: Test published cpu-full image
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Resolve image coordinates
+        id: image
+        env:
+          DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          namespace="${DOCKERHUB_NAMESPACE}"
+          if [ -z "${namespace}" ]; then
+            namespace="${DOCKERHUB_USERNAME}"
+          fi
+          if [ -z "${namespace}" ]; then
+            echo "DOCKERHUB_NAMESPACE variable (or DOCKERHUB_USERNAME secret) must be set." >&2
+            exit 1
+          fi
+          echo "image=${namespace}/vision-forge-api:cpu-full" >> "$GITHUB_OUTPUT"
+
+      - name: Pull published image
+        run: docker pull "${{ steps.image.outputs.image }}"
+
+      - name: Run container smoke checks
+        env:
+          PREDICT_TOKEN: vfk_predict_token_87654321fedcba
+        run: python3 scripts/docker_smoke_test.py --image "${{ steps.image.outputs.image }}" --config-dir config --data-dir data --image-path samples/cat.jpg --predict-token "$PREDICT_TOKEN" --timeout-seconds 600
