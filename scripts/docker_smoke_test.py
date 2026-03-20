@@ -95,11 +95,13 @@ def _docker_logs(container_id: str) -> None:
 
 
 def _start_container(args: argparse.Namespace) -> str:
+    container_name = f"vision-forge-smoke-{uuid.uuid4().hex[:12]}"
     command = [
         "docker",
         "run",
         "-d",
-        "--rm",
+        "--name",
+        container_name,
         "-p",
         "8000:8000",
         "-e",
@@ -115,7 +117,26 @@ def _start_container(args: argparse.Namespace) -> str:
         args.image,
     ]
     result = _run(command)
-    return result.stdout.strip()
+    return result.stdout.strip() or container_name
+
+
+def _inspect_container(container_id: str) -> tuple[str | None, str | None]:
+    result = _run(
+        [
+            "docker",
+            "inspect",
+            "--format={{.State.Status}} {{.State.ExitCode}}",
+            container_id,
+        ],
+        check=False,
+    )
+    if result.returncode != 0:
+        return None, None
+    parts = result.stdout.strip().split(maxsplit=1)
+    if len(parts) != 2:
+        return None, None
+    status, exit_code = parts
+    return status, exit_code
 
 
 def _hash_token(token: str) -> str:
@@ -154,7 +175,7 @@ def _prepare_runtime_data(args: argparse.Namespace) -> None:
 
 
 def _stop_container(container_id: str) -> None:
-    _run(["docker", "stop", container_id], check=False)
+    _run(["docker", "rm", "-f", container_id], check=False)
 
 
 def _wait_for_health(
@@ -255,6 +276,12 @@ def main() -> int:
         if len(predict_payload.get("tags", [])) > args.limit:
             raise RuntimeError(f"Predict returned too many tags: {predict_payload!r}")
     except Exception:  # noqa: BLE001
+        status, exit_code = _inspect_container(container_id)
+        if status is not None:
+            print(
+                f"Container {container_id} status={status} exit_code={exit_code}",
+                file=sys.stderr,
+            )
         _docker_logs(container_id)
         raise
     finally:
