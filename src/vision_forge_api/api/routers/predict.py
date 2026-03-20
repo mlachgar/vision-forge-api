@@ -36,7 +36,7 @@ class PredictResponse(BaseModel):
 async def predict(
     request: Request,
     _: Annotated[ApiKeyEntry, Depends(require_predict)],
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File(...)],
     limit: int | None = None,
     min_score: float | None = None,
     profile: str | None = None,
