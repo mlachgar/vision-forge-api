@@ -140,6 +140,9 @@ What it runs:
 4. Runs one authenticated `/predict` request with a sample image from `samples/`
 5. Uses Buildx + GHA cache
 
+The smoke helper will bootstrap a local `data/` tree with demo API keys if the
+checkout does not already include one.
+
 ### Docker publish workflow (`docker-publish.yml`)
 
 Triggers:

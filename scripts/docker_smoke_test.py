@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -13,6 +14,9 @@ import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
+
+DEFAULT_ADMIN_TOKEN = "vfk_admin_token_12345678abcdef12"
+DEFAULT_PREDICT_TOKEN = "vfk_predict_token_87654321fedcba"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -114,6 +118,41 @@ def _start_container(args: argparse.Namespace) -> str:
     return result.stdout.strip()
 
 
+def _hash_token(token: str) -> str:
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
+
+
+def _seed_demo_api_keys(data_dir: Path, predict_token: str) -> None:
+    api_keys_path = data_dir / "api_keys.json"
+    if api_keys_path.exists():
+        return
+    payload = [
+        {
+            "name": "admin",
+            "key_hash": _hash_token(DEFAULT_ADMIN_TOKEN),
+            "roles": ["admin", "predict"],
+            "enabled": True,
+        },
+        {
+            "name": "predictor",
+            "key_hash": _hash_token(predict_token),
+            "roles": ["predict"],
+            "enabled": True,
+        },
+    ]
+    temp_path = api_keys_path.with_suffix(api_keys_path.suffix + ".tmp")
+    temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    temp_path.replace(api_keys_path)
+
+
+def _prepare_runtime_data(args: argparse.Namespace) -> None:
+    args.data_dir.mkdir(parents=True, exist_ok=True)
+    (args.data_dir / "embeddings").mkdir(parents=True, exist_ok=True)
+    (args.data_dir / "model_cache").mkdir(parents=True, exist_ok=True)
+    _seed_demo_api_keys(args.data_dir, args.predict_token)
+
+
 def _stop_container(container_id: str) -> None:
     _run(["docker", "stop", container_id], check=False)
 
@@ -192,10 +231,9 @@ def main() -> int:
     args = _parse_args()
     if not args.config_dir.is_dir():
         raise FileNotFoundError(f"Missing config directory: {args.config_dir}")
-    if not args.data_dir.is_dir():
-        raise FileNotFoundError(f"Missing data directory: {args.data_dir}")
     if not args.image_path.is_file():
         raise FileNotFoundError(f"Missing sample image: {args.image_path}")
+    _prepare_runtime_data(args)
 
     container_id = _start_container(args)
     try:
