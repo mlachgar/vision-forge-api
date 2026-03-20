@@ -61,6 +61,7 @@ python3 -m pip install ".[dev]"
 - `scripts/precompute_embeddings.py`: recomputes and persists text embeddings.
 - `scripts/download_model.py`: pre-downloads model artifacts into cache.
 - `scripts/test_embeddings.py`: checks embedding coverage against canonical tags.
+- `scripts/docker_smoke_test.py`: runs the Docker smoke e2e checks for `/health` and `/predict`.
 
 ## Docker Workflow
 
@@ -130,7 +131,9 @@ What it runs:
 
 1. Checkout the exact commit SHA from the completed CI run
 2. Build `cpu-lite` image from `docker/Dockerfile` (no push)
-3. Uses Buildx + GHA cache
+3. Runs a container smoke check against `/health`
+4. Runs one authenticated `/predict` request with a sample image from `samples/`
+5. Uses Buildx + GHA cache
 
 ### Docker publish workflow (`docker-publish.yml`)
 

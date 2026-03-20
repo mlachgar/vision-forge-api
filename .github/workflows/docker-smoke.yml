@@ -33,10 +33,15 @@ jobs:
           context: .
           file: docker/Dockerfile
           push: false
-          load: false
+          load: true
           tags: vision-forge-api:ci-smoke
           build-args: |
             DEVICE=cpu
             BUNDLE_MODEL=false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Run container smoke checks
+        env:
+          PREDICT_TOKEN: vfk_predict_token_87654321fedcba
+        run: python3 scripts/docker_smoke_test.py --image vision-forge-api:ci-smoke --config-dir config --data-dir data --image-path samples/cat.jpg --predict-token "$PREDICT_TOKEN"
