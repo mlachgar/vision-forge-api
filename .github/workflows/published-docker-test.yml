@@ -4,7 +4,6 @@ on:
   workflow_run:
     workflows: ["Docker Publish"]
     types: [completed]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,7 +15,7 @@ concurrency:
 jobs:
   published-docker-test:
     name: Test published cpu-full image
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

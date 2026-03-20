@@ -144,7 +144,6 @@ What it runs:
 Triggers:
 
 - Automatically after `Docker Publish` completes successfully (`workflow_run`)
-- Manual run (`workflow_dispatch`)
 
 What it runs:
 
