@@ -139,6 +139,9 @@ What it runs:
 2. Build `cpu-lite` image from `docker/Dockerfile` (no push)
 3. Uses Buildx + GHA cache
 
+Dependabot branches are skipped to avoid duplicate Docker build runs on
+dependency update PRs.
+
 ### Published Docker Test workflow (`published-docker-test.yml`)
 
 Triggers:
