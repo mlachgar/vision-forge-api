@@ -26,7 +26,7 @@ def test_prepare_runtime_data_seeds_demo_api_keys(tmp_path: Path) -> None:
     assert payload[1]["key_hash"] == smoke._hash_token(smoke.DEFAULT_PREDICT_TOKEN)
     assert payload[1]["roles"] == ["predict"]
     assert (data_dir / "embeddings").is_dir()
-    assert (data_dir / "model_cache").is_dir()
+    assert not (data_dir / "model_cache").exists()
 
 
 def test_prepare_runtime_data_keeps_existing_api_keys(tmp_path: Path) -> None:
