@@ -96,6 +96,8 @@ def _docker_logs(container_id: str) -> None:
 
 def _start_container(args: argparse.Namespace) -> str:
     container_name = f"vision-forge-smoke-{uuid.uuid4().hex[:12]}"
+    api_keys_path = args.data_dir.resolve() / "api_keys.json"
+    embeddings_dir = args.data_dir.resolve() / "embeddings"
     command = [
         "docker",
         "run",
@@ -113,7 +115,9 @@ def _start_container(args: argparse.Namespace) -> str:
         "-v",
         f"{args.config_dir.resolve()}:/config:ro",
         "-v",
-        f"{args.data_dir.resolve()}:/data",
+        f"{api_keys_path}:/data/api_keys.json:ro",
+        "-v",
+        f"{embeddings_dir}:/data/embeddings",
         args.image,
     ]
     result = _run(command)
@@ -170,14 +174,9 @@ def _seed_demo_api_keys(data_dir: Path, predict_token: str) -> None:
 def _prepare_runtime_data(args: argparse.Namespace) -> None:
     args.data_dir.mkdir(parents=True, exist_ok=True)
     (args.data_dir / "embeddings").mkdir(parents=True, exist_ok=True)
-    (args.data_dir / "model_cache").mkdir(parents=True, exist_ok=True)
     # The container runs as a non-root user, so the bind mount needs to be
     # writable by the GitHub runner user that owns these directories.
-    for path in (
-        args.data_dir,
-        args.data_dir / "embeddings",
-        args.data_dir / "model_cache",
-    ):
+    for path in (args.data_dir, args.data_dir / "embeddings"):
         path.chmod(0o777)
     _seed_demo_api_keys(args.data_dir, args.predict_token)
 
