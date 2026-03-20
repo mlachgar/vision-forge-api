@@ -19,3 +19,4 @@ docker/*.tar
 .vscode/
 .idea/
 .coverage
+test-results
