@@ -84,7 +84,7 @@ docker run --rm -it \
 
 ## CI/CD
 
-This repository includes two GitHub Actions workflows:
+This repository includes three GitHub Actions workflows:
 
 - `.github/workflows/ci.yml`
 - `.github/workflows/docker-publish.yml`
@@ -112,7 +112,12 @@ What it runs:
 5. Mypy type check
 6. Config validation (`scripts/validate_config.py`)
 7. Test suite (`pytest`) with artifact upload
-8. Dependency audit (`pip-audit`, non-blocking)
+8. SonarQube Cloud scan
+9. Dependency audit (`pip-audit`, non-blocking)
+
+Required CI secret for the Sonar scan:
+
+- `SONAR_TOKEN`
 
 ### Docker smoke workflow (`docker-smoke.yml`)
 
