@@ -67,7 +67,22 @@ def _build_context(tmp_path: Path) -> SimpleNamespace:
     data_dir = tmp_path / "data"
     data_dir.mkdir()
     temp_repo = ApiKeyRepository(data_dir)
-    temp_repo.persist(ApiKeyRepository(ROOT / "data").read_all())
+    temp_repo.persist(
+        [
+            ApiKeyEntry(
+                name="admin",
+                key_hash=hash_token(ADMIN_TOKEN),
+                roles=(AuthRole.ADMIN, AuthRole.PREDICT),
+                enabled=True,
+            ),
+            ApiKeyEntry(
+                name="predictor",
+                key_hash=hash_token(PREDICT_TOKEN),
+                roles=(AuthRole.PREDICT,),
+                enabled=True,
+            ),
+        ]
+    )
 
     auth_cache = AuthCache.from_repository(temp_repo)
 
