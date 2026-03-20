@@ -171,6 +171,14 @@ def _prepare_runtime_data(args: argparse.Namespace) -> None:
     args.data_dir.mkdir(parents=True, exist_ok=True)
     (args.data_dir / "embeddings").mkdir(parents=True, exist_ok=True)
     (args.data_dir / "model_cache").mkdir(parents=True, exist_ok=True)
+    # The container runs as a non-root user, so the bind mount needs to be
+    # writable by the GitHub runner user that owns these directories.
+    for path in (
+        args.data_dir,
+        args.data_dir / "embeddings",
+        args.data_dir / "model_cache",
+    ):
+        path.chmod(0o777)
     _seed_demo_api_keys(args.data_dir, args.predict_token)
 
 
