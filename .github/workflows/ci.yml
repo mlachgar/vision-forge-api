@@ -52,7 +52,7 @@ jobs:
         run: python scripts/validate_config.py --config-dir config --data-dir data
 
       - name: Run tests
-        run: python -m pytest -q tests --junitxml test-results/pytest.xml
+        run: python -m pytest -q tests --junitxml test-results/pytest.xml --cov=vision_forge_api --cov-report=xml:test-results/coverage.xml --cov-report=term-missing
 
       - name: Upload test reports
         if: always()
@@ -60,6 +60,14 @@ jobs:
         with:
           name: pytest-report
           path: test-results/pytest.xml
+          if-no-files-found: ignore
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-report
+          path: test-results/coverage.xml
           if-no-files-found: ignore
 
       - name: SonarQube Scan

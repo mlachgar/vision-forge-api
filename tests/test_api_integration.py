@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ADMIN_TOKEN = "vfk_admin_token_12345678abcdef12"
 PREDICT_TOKEN = "vfk_predict_token_87654321fedcba"
 CREATED_TOKEN = "vfk_" + "a" * 28
+pytestmark = pytest.mark.integration
 
 
 class _PredictionServiceStub:

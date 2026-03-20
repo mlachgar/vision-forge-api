@@ -63,6 +63,10 @@ python3 -m pip install ".[dev]"
 - `scripts/test_embeddings.py`: checks embedding coverage against canonical tags.
 - `scripts/docker_smoke_test.py`: runs the Docker smoke e2e checks for `/health` and `/predict`.
 
+Pytest markers:
+
+- `integration`: HTTP-level tests that exercise the API with mounted config/data and sample images.
+
 ## Docker Workflow
 
 Build image:
@@ -113,8 +117,9 @@ What it runs:
 5. Mypy type check
 6. Config validation (`scripts/validate_config.py`)
 7. Test suite (`pytest`) with artifact upload
-8. SonarQube Cloud scan
-9. Dependency audit (`pip-audit`, non-blocking)
+8. Coverage XML artifact for the full suite
+9. SonarQube Cloud scan
+10. Dependency audit (`pip-audit`, non-blocking)
 
 Required CI secret for the Sonar scan:
 
