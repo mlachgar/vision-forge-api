@@ -32,7 +32,7 @@ class ProfilesList(BaseModel):
     total: int
 
 
-@router.get("/tag-sets", response_model=TagSetsList)
+@router.get("/tag-sets")
 def list_tag_sets(request: Request) -> TagSetsList:
     context: AppContext = request.app.state.context
     catalog = context.tag_catalog
@@ -47,7 +47,7 @@ def list_tag_sets(request: Request) -> TagSetsList:
     return TagSetsList(tag_sets=items, total=len(items))
 
 
-@router.get("/profiles", response_model=ProfilesList)
+@router.get("/profiles")
 def list_profiles(request: Request) -> ProfilesList:
     context: AppContext = request.app.state.context
     catalog = context.tag_catalog

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -55,7 +55,7 @@ class EmbeddingStore:
     ) -> None:
         payload = {
             "version": 1,
-            "created_at": datetime.utcnow().isoformat() + "Z",
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "metadata": {
                 "format_version": int(format_version),
                 "model_id": model_id or "",

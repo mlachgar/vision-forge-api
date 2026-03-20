@@ -1,5 +1,6 @@
 """Admin API key management and reload endpoints."""
 
+from typing import Annotated
 from typing import Iterable, Sequence
 
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -55,22 +56,22 @@ def _service_from_request(request: Request) -> AdminService:
     return AdminService(context)
 
 
-@router.get("/api-keys", response_model=list[ApiKeySummary])
+@router.get("/api-keys")
 def list_api_keys(
-    request: Request, _: ApiKeyEntry = Depends(require_admin)
+    request: Request,
+    _: Annotated[ApiKeyEntry, Depends(require_admin)],
 ) -> list[ApiKeySummary]:
     return _summaries(_service_from_request(request).list_api_keys())
 
 
 @router.post(
     "/api-keys",
-    response_model=ApiKeyCreateResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def create_api_key(
     payload: ApiKeyCreateRequest,
     request: Request,
-    _: ApiKeyEntry = Depends(require_admin),
+    _: Annotated[ApiKeyEntry, Depends(require_admin)],
 ) -> ApiKeyCreateResponse:
     created = _service_from_request(request).create_api_key(
         name=payload.name,
@@ -85,12 +86,12 @@ def create_api_key(
     )
 
 
-@router.patch("/api-keys/{name}", response_model=ApiKeySummary)
+@router.patch("/api-keys/{name}")
 def update_api_key(
     name: str,
     payload: ApiKeyUpdateRequest,
     request: Request,
-    _: ApiKeyEntry = Depends(require_admin),
+    _: Annotated[ApiKeyEntry, Depends(require_admin)],
 ) -> ApiKeySummary:
     updated = _service_from_request(request).update_api_key_enabled(
         name=name, enabled=payload.enabled
@@ -104,15 +105,18 @@ def update_api_key(
     "/api-keys/{name}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
 )
 def delete_api_key(
-    name: str, request: Request, _: ApiKeyEntry = Depends(require_admin)
+    name: str,
+    request: Request,
+    _: Annotated[ApiKeyEntry, Depends(require_admin)],
 ) -> Response:
     _service_from_request(request).delete_api_key(name)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/reload", response_model=ReloadResponse)
+@router.post("/reload")
 def reload_configuration(
-    request: Request, _: ApiKeyEntry = Depends(require_admin)
+    request: Request,
+    _: Annotated[ApiKeyEntry, Depends(require_admin)],
 ) -> ReloadResponse:
     service = _service_from_request(request)
     new_context = service.reload_configuration()

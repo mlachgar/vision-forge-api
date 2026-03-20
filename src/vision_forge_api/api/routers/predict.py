@@ -1,5 +1,7 @@
 """Prediction endpoint wiring."""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from pydantic import BaseModel, Field
 
@@ -30,16 +32,16 @@ class PredictResponse(BaseModel):
     meta: PredictMeta
 
 
-@router.post("/predict", response_model=PredictResponse)
+@router.post("/predict")
 async def predict(
     request: Request,
+    _: Annotated[ApiKeyEntry, Depends(require_predict)],
     file: UploadFile = File(...),
     limit: int | None = None,
     min_score: float | None = None,
     profile: str | None = None,
     tag_sets: str | None = None,
     extra_tags: str | None = None,
-    _: ApiKeyEntry = Depends(require_predict),
 ) -> PredictResponse:
     context: AppContext = request.app.state.context
     request_service = PredictRequestService(context)

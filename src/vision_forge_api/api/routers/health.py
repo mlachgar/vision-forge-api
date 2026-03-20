@@ -18,7 +18,7 @@ class HealthResponse(BaseModel):
     meta: HealthMeta
 
 
-@router.get("/health", response_model=HealthResponse, tags=["health"])
+@router.get("/health", tags=["health"])
 def health(request: Request) -> HealthResponse:
     context: AppContext = request.app.state.context
     return HealthResponse(
