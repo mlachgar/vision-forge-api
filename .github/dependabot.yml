@@ -7,10 +7,31 @@ updates:
       day: monday
       time: "06:00"
       timezone: "Europe/Paris"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - dependencies
       - python
+    groups:
+      python-runtime:
+        patterns:
+          - fastapi
+          - pydantic
+          - pydantic-settings
+          - uvicorn*
+      python-ml-stack:
+        patterns:
+          - numpy
+          - pillow
+          - protobuf
+          - sentencepiece
+          - torch
+          - transformers
+      python-dev-tools:
+        patterns:
+          - httpx
+          - mypy
+          - pytest*
+          - ruff
 
   - package-ecosystem: github-actions
     directory: "/"
@@ -19,7 +40,11 @@ updates:
       day: monday
       time: "06:15"
       timezone: "Europe/Paris"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - dependencies
       - github-actions
+    groups:
+      github-actions:
+        patterns:
+          - "*"

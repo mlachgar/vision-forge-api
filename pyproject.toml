@@ -19,7 +19,7 @@ classifiers = [
 dependencies = [
     "fastapi==0.111.0",
     "uvicorn[standard]==0.23.0",
-    "pydantic==2.8.1",
+    "pydantic==2.12.5",
     "pydantic-settings==2.0.0",
     "torch==2.2.0",
     "transformers==4.41.0",
@@ -29,7 +29,7 @@ dependencies = [
     "python-multipart==0.0.22",
     "numpy==1.26.3",
     "sentencepiece==0.2.1",
-    "protobuf==4.24.1",
+    "protobuf==7.34.0",
 ]
 
 [project.optional-dependencies]
