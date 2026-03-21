@@ -34,11 +34,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest==8.4.0",
-    "pytest-cov==6.0.0",
-    "pytest-asyncio==0.22.0",
-    "ruff==0.15.6",
-    "mypy==1.10.1",
+    "pytest==9.0.2",
+    "pytest-cov==7.0.0",
+    "pytest-asyncio==1.3.0",
+    "ruff==0.15.7",
+    "mypy==1.19.1",
     "types-Pillow==10.2.0.20240822",
     "types-PyYAML==6.0.12.20250915",
     "httpx==0.28.1",
