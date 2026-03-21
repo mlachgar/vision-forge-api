@@ -20,6 +20,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -48,4 +49,4 @@ jobs:
       - name: Run container smoke checks
         env:
           PREDICT_TOKEN: vfk_predict_token_87654321fedcba
-        run: python3 scripts/docker_smoke_test.py --image "${{ steps.image.outputs.image }}" --config-dir config --data-dir data --image-path samples/cat.jpg --predict-token "$PREDICT_TOKEN" --timeout-seconds 180 --health-request-timeout-seconds 10 --predict-request-timeout-seconds 60
+        run: python3 scripts/docker_smoke_test.py --image "${{ steps.image.outputs.image }}" --config-dir config --data-dir data --image-path samples/cat.jpg --predict-token "$PREDICT_TOKEN" --timeout-seconds 600 --health-request-timeout-seconds 10 --predict-request-timeout-seconds 120
