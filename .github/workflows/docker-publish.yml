@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         variant:
           - id: cpu-lite
@@ -109,8 +110,8 @@ jobs:
             org.opencontainers.image.version=${{ steps.tags.outputs.version || 'edge' }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=Apache-2.0
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.variant.id }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.variant.id }}
 
       - name: Trivy image scan (non-blocking)
         if: steps.tags.outputs.publish == 'true' && matrix.variant.id == 'cpu-full'

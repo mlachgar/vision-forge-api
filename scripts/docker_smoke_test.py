@@ -17,6 +17,7 @@ from pathlib import Path
 
 DEFAULT_ADMIN_TOKEN = "vfk_admin_token_12345678abcdef12"
 DEFAULT_PREDICT_TOKEN = "vfk_predict_token_87654321fedcba"
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 10
 
 
 def _parse_args() -> argparse.Namespace:
@@ -70,7 +71,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--timeout-seconds",
         type=int,
-        default=300,
+        default=180,
         help="Maximum time to wait for the service to become healthy",
     )
     parser.add_argument(
@@ -96,8 +97,6 @@ def _docker_logs(container_id: str) -> None:
 
 def _start_container(args: argparse.Namespace) -> str:
     container_name = f"vision-forge-smoke-{uuid.uuid4().hex[:12]}"
-    api_keys_path = args.data_dir.resolve() / "api_keys.json"
-    embeddings_dir = args.data_dir.resolve() / "embeddings"
     command = [
         "docker",
         "run",
@@ -115,9 +114,7 @@ def _start_container(args: argparse.Namespace) -> str:
         "-v",
         f"{args.config_dir.resolve()}:/config:ro",
         "-v",
-        f"{api_keys_path}:/data/api_keys.json:ro",
-        "-v",
-        f"{embeddings_dir}:/data/embeddings",
+        f"{args.data_dir.resolve()}:/data",
         args.image,
     ]
     result = _run(command)
@@ -174,9 +171,14 @@ def _seed_demo_api_keys(data_dir: Path, predict_token: str) -> None:
 def _prepare_runtime_data(args: argparse.Namespace) -> None:
     args.data_dir.mkdir(parents=True, exist_ok=True)
     (args.data_dir / "embeddings").mkdir(parents=True, exist_ok=True)
+    (args.data_dir / "model_cache").mkdir(parents=True, exist_ok=True)
     # The container runs as a non-root user, so the bind mount needs to be
     # writable by the GitHub runner user that owns these directories.
-    for path in (args.data_dir, args.data_dir / "embeddings"):
+    for path in (
+        args.data_dir,
+        args.data_dir / "embeddings",
+        args.data_dir / "model_cache",
+    ):
         path.chmod(0o777)
     _seed_demo_api_keys(args.data_dir, args.predict_token)
 
@@ -193,7 +195,9 @@ def _wait_for_health(
     health_url = urllib.parse.urljoin(base_url, "/health")
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(health_url, timeout=10) as response:
+            with urllib.request.urlopen(
+                health_url, timeout=DEFAULT_REQUEST_TIMEOUT_SECONDS
+            ) as response:
                 payload = json.loads(response.read().decode("utf-8"))
             if payload.get("status") == "ok":
                 return payload
@@ -248,7 +252,9 @@ def _predict(
             "Content-Type": f"multipart/form-data; boundary={boundary}",
         },
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with urllib.request.urlopen(
+        request, timeout=DEFAULT_REQUEST_TIMEOUT_SECONDS
+    ) as response:
         payload = json.loads(response.read().decode("utf-8"))
     if not payload.get("tags"):
         raise RuntimeError(f"Predict returned no tags: {payload!r}")

@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: ["Docker Publish"]
     types: [completed]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,7 +16,9 @@ concurrency:
 jobs:
   published-docker-test:
     name: Test published cpu-full image
-    if: github.event.workflow_run.conclusion == 'success'
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,4 +48,4 @@ jobs:
       - name: Run container smoke checks
         env:
           PREDICT_TOKEN: vfk_predict_token_87654321fedcba
-        run: python3 scripts/docker_smoke_test.py --image "${{ steps.image.outputs.image }}" --config-dir config --data-dir data --image-path samples/cat.jpg --predict-token "$PREDICT_TOKEN" --timeout-seconds 600
+        run: python3 scripts/docker_smoke_test.py --image "${{ steps.image.outputs.image }}" --config-dir config --data-dir data --image-path samples/cat.jpg --predict-token "$PREDICT_TOKEN" --timeout-seconds 180
