@@ -37,7 +37,7 @@ class SiglipService:
             model_id,
             cache_dir=cache_dir,
         )
-        self.model.to(self.device)
+        torch.nn.Module.to(self.model, self.device)
         self.model.eval()
         logger.debug("Loaded SigLIP model %s on %s", model_id, self.device)
 
