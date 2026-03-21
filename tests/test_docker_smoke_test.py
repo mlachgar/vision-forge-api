@@ -62,11 +62,7 @@ def test_start_container_mounts_full_data_dir(
 
     def fake_run(command: list[str], *, check: bool = True):
         captured.append(command)
-
-        class Result:
-            stdout = "container-123\n"
-
-        return Result()
+        return SimpleNamespace(returncode=0, stdout="container-123\n", stderr="")
 
     monkeypatch.setattr(smoke, "_run", fake_run)
 
