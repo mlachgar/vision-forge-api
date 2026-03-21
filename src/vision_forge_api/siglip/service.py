@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 from PIL.Image import Image
 import torch
@@ -32,7 +32,8 @@ class SiglipService:
             cache_dir=cache_dir,
             padding_side="right",
         )
-        self.model = SiglipModel.from_pretrained(
+        # The transformers typing stubs for SigLIP model loading are not precise.
+        self.model: Any = SiglipModel.from_pretrained(
             model_id,
             cache_dir=cache_dir,
         )
