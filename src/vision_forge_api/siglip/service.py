@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
 from PIL.Image import Image
 import torch
@@ -37,7 +37,7 @@ class SiglipService:
             model_id,
             cache_dir=cache_dir,
         )
-        torch.nn.Module.to(self.model, self.device)
+        cast(Any, self.model).to(self.device)
         self.model.eval()
         logger.debug("Loaded SigLIP model %s on %s", model_id, self.device)
 
