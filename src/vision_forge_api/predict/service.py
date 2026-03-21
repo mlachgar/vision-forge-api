@@ -40,9 +40,7 @@ class PredictionService:
         self._siglip = siglip
         self._store = EmbeddingStore(embeddings_dir)
         self._vectors: dict[str, torch.Tensor] = self._build_vector_cache()
-        self._prompt_vectors: dict[str, torch.Tensor] = (
-            self._build_prompt_vector_cache()
-        )
+        self._prompt_vectors: dict[str, torch.Tensor] = {}
         self._canonical_primary_set: dict[str, str] = self._build_primary_set_index()
 
     def _build_vector_cache(self) -> dict[str, torch.Tensor]:
@@ -110,16 +108,25 @@ class PredictionService:
     def _build_prompt_vector_cache(self) -> dict[str, torch.Tensor]:
         cache: dict[str, torch.Tensor] = {}
         for tag in self._catalog.canonical_tags():
-            prompts = self._catalog.prompts_for_tag(tag)
-            texts: list[str] = []
-            for prompt in prompts:
-                if float(prompt.weight) <= 0:
-                    continue
-                texts.append(self._render_prompt(prompt, tag))
-            if not texts:
-                texts = [DEFAULT_EXTRA_PROMPT.format(tag=tag)]
-            cache[tag] = self._siglip.encode_texts(texts)
+            cache[tag] = self._get_prompt_vectors(tag)
         return cache
+
+    def _get_prompt_vectors(self, tag: str) -> torch.Tensor:
+        prompt_vectors = self._prompt_vectors.get(tag)
+        if prompt_vectors is not None:
+            return prompt_vectors
+
+        prompts = self._catalog.prompts_for_tag(tag)
+        texts: list[str] = []
+        for prompt in prompts:
+            if float(prompt.weight) <= 0:
+                continue
+            texts.append(self._render_prompt(prompt, tag))
+        if not texts:
+            texts = [DEFAULT_EXTRA_PROMPT.format(tag=tag)]
+        prompt_vectors = self._siglip.encode_texts(texts)
+        self._prompt_vectors[tag] = prompt_vectors
+        return prompt_vectors
 
     def _build_primary_set_index(self) -> dict[str, str]:
         index: dict[str, str] = {}
@@ -224,8 +231,8 @@ class PredictionService:
         )
         for idx in ranked_idx[:rerank_pool]:
             label = canonical_sources[idx]
-            prompt_vectors = self._prompt_vectors.get(label)
-            if prompt_vectors is None or prompt_vectors.numel() == 0:
+            prompt_vectors = self._get_prompt_vectors(label)
+            if prompt_vectors.numel() == 0:
                 continue
             prompt_scores = torch.matmul(prompt_vectors, image_vector.T).squeeze(-1)
             score_values[idx] = float(torch.max(prompt_scores).item())

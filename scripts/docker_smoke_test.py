@@ -17,7 +17,8 @@ from pathlib import Path
 
 DEFAULT_ADMIN_TOKEN = "vfk_admin_token_12345678abcdef12"
 DEFAULT_PREDICT_TOKEN = "vfk_predict_token_87654321fedcba"
-DEFAULT_REQUEST_TIMEOUT_SECONDS = 10
+DEFAULT_HEALTH_REQUEST_TIMEOUT_SECONDS = 10
+DEFAULT_PREDICT_REQUEST_TIMEOUT_SECONDS = 60
 
 
 def _parse_args() -> argparse.Namespace:
@@ -80,6 +81,18 @@ def _parse_args() -> argparse.Namespace:
         default=5,
         help="Delay between readiness checks",
     )
+    parser.add_argument(
+        "--health-request-timeout-seconds",
+        type=int,
+        default=DEFAULT_HEALTH_REQUEST_TIMEOUT_SECONDS,
+        help="Maximum time to wait for each health request",
+    )
+    parser.add_argument(
+        "--predict-request-timeout-seconds",
+        type=int,
+        default=DEFAULT_PREDICT_REQUEST_TIMEOUT_SECONDS,
+        help="Maximum time to wait for the predict request",
+    )
     return parser.parse_args()
 
 
@@ -101,6 +114,8 @@ def _start_container(args: argparse.Namespace) -> str:
         "docker",
         "run",
         "-d",
+        "--platform",
+        "linux/amd64",
         "--name",
         container_name,
         "-p",
@@ -117,7 +132,15 @@ def _start_container(args: argparse.Namespace) -> str:
         f"{args.data_dir.resolve()}:/data",
         args.image,
     ]
-    result = _run(command)
+    result = _run(command, check=False)
+    if result.returncode != 0:
+        print("Failed to start smoke-test container with docker run:", file=sys.stderr)
+        print(" ".join(command), file=sys.stderr)
+        if result.stdout:
+            print(result.stdout, file=sys.stderr, end="")
+        if result.stderr:
+            print(result.stderr, file=sys.stderr, end="")
+        raise RuntimeError(f"docker run failed with exit code {result.returncode}")
     return result.stdout.strip() or container_name
 
 
@@ -188,7 +211,10 @@ def _stop_container(container_id: str) -> None:
 
 
 def _wait_for_health(
-    base_url: str, timeout_seconds: int, poll_interval_seconds: int
+    base_url: str,
+    timeout_seconds: int,
+    poll_interval_seconds: int,
+    request_timeout_seconds: int,
 ) -> dict[str, object]:
     deadline = time.time() + timeout_seconds
     last_error: Exception | None = None
@@ -196,7 +222,7 @@ def _wait_for_health(
     while time.time() < deadline:
         try:
             with urllib.request.urlopen(
-                health_url, timeout=DEFAULT_REQUEST_TIMEOUT_SECONDS
+                health_url, timeout=request_timeout_seconds
             ) as response:
                 payload = json.loads(response.read().decode("utf-8"))
             if payload.get("status") == "ok":
@@ -235,6 +261,7 @@ def _predict(
     image_path: Path,
     profile: str,
     limit: int,
+    request_timeout_seconds: int,
 ) -> dict[str, object]:
     predict_url = urllib.parse.urljoin(
         base_url,
@@ -252,9 +279,7 @@ def _predict(
             "Content-Type": f"multipart/form-data; boundary={boundary}",
         },
     )
-    with urllib.request.urlopen(
-        request, timeout=DEFAULT_REQUEST_TIMEOUT_SECONDS
-    ) as response:
+    with urllib.request.urlopen(request, timeout=request_timeout_seconds) as response:
         payload = json.loads(response.read().decode("utf-8"))
     if not payload.get("tags"):
         raise RuntimeError(f"Predict returned no tags: {payload!r}")
@@ -272,7 +297,10 @@ def main() -> int:
     container_id = _start_container(args)
     try:
         health_payload = _wait_for_health(
-            args.base_url, args.timeout_seconds, args.poll_interval_seconds
+            args.base_url,
+            args.timeout_seconds,
+            args.poll_interval_seconds,
+            args.health_request_timeout_seconds,
         )
         if health_payload.get("meta", {}).get("app_name") != "vision-forge-api":
             raise RuntimeError(f"Unexpected health response: {health_payload!r}")
@@ -283,6 +311,7 @@ def main() -> int:
             args.image_path,
             args.profile,
             args.limit,
+            args.predict_request_timeout_seconds,
         )
         if predict_payload.get("meta", {}).get("profile") != args.profile:
             raise RuntimeError(f"Unexpected predict response: {predict_payload!r}")

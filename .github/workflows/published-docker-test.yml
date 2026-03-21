@@ -48,4 +48,4 @@ jobs:
       - name: Run container smoke checks
         env:
           PREDICT_TOKEN: vfk_predict_token_87654321fedcba
-        run: python3 scripts/docker_smoke_test.py --image "${{ steps.image.outputs.image }}" --config-dir config --data-dir data --image-path samples/cat.jpg --predict-token "$PREDICT_TOKEN" --timeout-seconds 180
+        run: python3 scripts/docker_smoke_test.py --image "${{ steps.image.outputs.image }}" --config-dir config --data-dir data --image-path samples/cat.jpg --predict-token "$PREDICT_TOKEN" --timeout-seconds 180 --health-request-timeout-seconds 10 --predict-request-timeout-seconds 60
