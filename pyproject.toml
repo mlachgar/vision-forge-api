@@ -21,15 +21,15 @@ dependencies = [
     "uvicorn[standard]==0.23.0",
     "pydantic==2.12.5",
     "pydantic-settings==2.0.0",
-    "torch==2.2.0",
-    "transformers==4.41.0",
-    "pillow==10.1.0",
+    "torch==2.10.0",
+    "transformers==5.3.0",
+    "pillow==12.1.1",
     "pyyaml==6.0.3",
     "httpx==0.28.1",
     "python-multipart==0.0.22",
-    "numpy==1.26.3",
+    "numpy==2.4.3",
     "sentencepiece==0.2.1",
-    "protobuf==7.34.0",
+    "protobuf==7.34.1",
 ]
 
 [project.optional-dependencies]
