@@ -37,7 +37,7 @@ def main() -> int:
     settings = loader.load_settings()
     SiglipService(
         settings.siglip_model_id, settings.model_cache_dir, device_hint=args.device
-    )
+    ).preload()
     LOGGER.info(
         "Model %s is available in %s",
         settings.siglip_model_id,

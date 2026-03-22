@@ -93,6 +93,8 @@ def test_siglip_service_behaviors(
     monkeypatch.setattr(siglip_mod.torch.cuda, "is_available", lambda: False)
     assert str(siglip_mod._resolve_device("gpu")) == "cpu"
 
+    load_calls: list[tuple[str, tuple, dict]] = []
+
     class _Processor:
         def __call__(
             self,
@@ -120,21 +122,30 @@ def test_siglip_service_behaviors(
             return None
 
         def get_image_features(self, *, pixel_values):
-            return torch.tensor([[3.0, 4.0]], dtype=torch.float32)
+            return SimpleNamespace(
+                pooler_output=torch.tensor([[3.0, 4.0]], dtype=torch.float32)
+            )
 
         def get_text_features(self, **_kwargs):
-            return torch.tensor([[6.0, 8.0]], dtype=torch.float32)
+            return SimpleNamespace(
+                pooler_output=torch.tensor([[6.0, 8.0]], dtype=torch.float32)
+            )
 
     monkeypatch.setattr(
         siglip_mod.SiglipProcessor,
         "from_pretrained",
-        lambda *args, **kwargs: _Processor(),
+        lambda *args, **kwargs: (
+            load_calls.append(("processor", args, kwargs)) or _Processor()
+        ),
     )
     monkeypatch.setattr(
-        siglip_mod.SiglipModel, "from_pretrained", lambda *args, **kwargs: _Model()
+        siglip_mod.SiglipModel,
+        "from_pretrained",
+        lambda *args, **kwargs: load_calls.append(("model", args, kwargs)) or _Model(),
     )
 
     service = siglip_mod.SiglipService("model-id", tmp_path, device_hint="cpu")
+    assert [call[0] for call in load_calls] == ["processor", "model"]
 
     image_vec = service.encode_image(image=SimpleNamespace())
     assert image_vec.shape[-1] == 2
@@ -143,6 +154,7 @@ def test_siglip_service_behaviors(
     )
 
     text_vec = service.encode_texts(("cat",))
+    assert [call[0] for call in load_calls] == ["processor", "model"]
     assert text_vec.shape[-1] == 2
 
     empty = service.encode_texts(())

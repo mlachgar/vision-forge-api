@@ -48,7 +48,9 @@ python3 -m pip install ".[dev]"
 - Current taxonomy is large (100+ tags per set; ~1500+ canonical tags total).
 - `config/prompts.yaml` contains prompt entries for all canonical tags.
 - Text embeddings are cached in `data/embeddings/text_embeddings.json`.
-- On startup, embeddings are auto-refreshed if model id/format metadata is stale.
+- On startup, the embedding cache is loaded and auto-refreshed if model id/format metadata is stale.
+- The SigLIP model is loaded during startup.
+- Bundled `cpu-full` images load SigLIP from the pre-populated local cache in `/data/model_cache`.
 - `/predict` uses two ranking stages:
   - coarse rank with cached per-tag embeddings
   - rerank top canonical candidates with prompt-level max similarity

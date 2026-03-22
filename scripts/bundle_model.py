@@ -16,7 +16,9 @@ def main() -> int:
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
 
-    SiglipService(args.model_id, args.model_cache_dir, device_hint=args.device)
+    SiglipService(
+        args.model_id, args.model_cache_dir, device_hint=args.device
+    ).preload()
     return 0
 
 

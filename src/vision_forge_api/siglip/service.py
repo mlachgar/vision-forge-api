@@ -27,25 +27,49 @@ class SiglipService:
     def __init__(self, model_id: str, cache_dir: Path, device_hint: str | None = None):
         self.model_id = model_id
         self.device = _resolve_device(device_hint)
-        self.processor = SiglipProcessor.from_pretrained(
-            model_id,
-            cache_dir=cache_dir,
+        self._cache_dir = cache_dir
+        self.processor, self.model = self._load_model()
+
+    @staticmethod
+    def _load_flag(value: str | None) -> bool:
+        return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+    def _load_model(self) -> tuple[Any, Any]:
+        processor = SiglipProcessor.from_pretrained(
+            self.model_id,
+            cache_dir=self._cache_dir,
             padding_side="right",
         )
         # The transformers typing stubs for SigLIP model loading are not precise.
-        self.model: Any = SiglipModel.from_pretrained(
-            model_id,
-            cache_dir=cache_dir,
+        model: Any = SiglipModel.from_pretrained(
+            self.model_id,
+            cache_dir=self._cache_dir,
         )
-        cast(Any, self.model).to(self.device)
-        self.model.eval()
-        logger.debug("Loaded SigLIP model %s on %s", model_id, self.device)
+        cast(Any, model).to(self.device)
+        model.eval()
+        logger.debug("Loaded SigLIP model %s on %s", self.model_id, self.device)
+        return processor, model
+
+    def preload(self) -> None:
+        """Compatibility hook for build-time warmup scripts."""
+        return None
+
+    @staticmethod
+    def _as_feature_tensor(features: Any) -> torch.Tensor:
+        for attr in ("image_embeds", "text_embeds", "pooler_output"):
+            value = getattr(features, attr, None)
+            if value is not None:
+                return value
+        if isinstance(features, (tuple, list)) and features:
+            return features[0]
+        return features
 
     def encode_image(self, image: Image) -> torch.Tensor:
         inputs = self.processor(images=image, return_tensors="pt", padding=True)
         pixel_values = inputs.pixel_values.to(self.device)
         with torch.no_grad():
             features = self.model.get_image_features(pixel_values=pixel_values)
+        features = self._as_feature_tensor(features)
         return F.normalize(features, dim=-1)
 
     def encode_texts(self, texts: Sequence[str]) -> torch.Tensor:
@@ -58,4 +82,5 @@ class SiglipService:
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         with torch.no_grad():
             features = self.model.get_text_features(**inputs)
+        features = self._as_feature_tensor(features)
         return F.normalize(features, dim=-1)
