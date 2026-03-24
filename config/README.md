@@ -1,6 +1,6 @@
 # Sample configuration
 
-These YAML files show the minimum required structure that the server expects under `/config` when mounted via Docker.
+These YAML files show the minimum required structure that the server expects under `/config`. The Docker image copies them into place at build time.
 
 ## Auth tokens
 - `admin` entry in `data/api_keys.json` is seeded with the plaintext token `vfk_admin_token_12345678abcdef12` (roles: `admin`, `predict`).

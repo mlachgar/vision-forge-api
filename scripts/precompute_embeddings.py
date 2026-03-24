@@ -71,7 +71,7 @@ def main() -> int:
         "--config-dir",
         type=Path,
         default=Path("/config"),
-        help="Path to the mounted /config directory",
+        help="Path to the configuration directory",
     )
     parser.add_argument(
         "--device", default=None, help="Preferred device (e.g., cpu, cuda)"

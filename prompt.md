@@ -49,7 +49,7 @@ CORE PRODUCT DECISIONS
 - File-based persistence
 - Dynamic API key management via API
 - In-memory cache for tokens
-- Mounted volumes REQUIRED
+- Bundled config required, runtime data mounted
 - Tag system = domain tag sets + profiles
 - Model = SigLIP only
 - Precomputed embeddings
@@ -64,14 +64,16 @@ Authorization: Bearer <token>
 
 Storage model:
 
-STATIC CONFIG (user-managed)
+STATIC CONFIG (bundled in image)
 - /config/auth.yaml
 
 DYNAMIC DATA (app-managed)
 - /data/api_keys.json
 
-Mounted volumes REQUIRED:
+Image-bundled config:
 - /config
+
+Mounted runtime data:
 - /data
 
 Runtime behavior:
@@ -137,10 +139,9 @@ File format (JSON only):
 PERSISTENCE DESIGN
 ========================
 
-Mounted volumes REQUIRED:
+Runtime data mounted:
 
 docker run:
--v ./config:/config
 -v ./data:/data
 
 Structure:

@@ -26,6 +26,7 @@ RUN addgroup --system app \
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY scripts ./scripts
+COPY config/. /config/
 
 RUN mkdir -p /config /data/embeddings /data/model_cache \
     && chown -R app:app /app /config /data

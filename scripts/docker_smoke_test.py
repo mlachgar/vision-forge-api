@@ -36,12 +36,6 @@ def _parse_args() -> argparse.Namespace:
         help="Base URL exposed by the container",
     )
     parser.add_argument(
-        "--config-dir",
-        type=Path,
-        default=Path("config"),
-        help="Host path mounted into /config",
-    )
-    parser.add_argument(
         "--data-dir",
         type=Path,
         default=Path("data"),
@@ -126,8 +120,6 @@ def _start_container(args: argparse.Namespace) -> str:
         "VISION_FORGE_DATA_DIR=/data",
         "-e",
         "VISION_FORGE_DEVICE=cpu",
-        "-v",
-        f"{args.config_dir.resolve()}:/config:ro",
         "-v",
         f"{args.data_dir.resolve()}:/data",
         args.image,
@@ -291,8 +283,6 @@ def _predict(
 
 def main() -> int:
     args = _parse_args()
-    if not args.config_dir.is_dir():
-        raise FileNotFoundError(f"Missing config directory: {args.config_dir}")
     if not args.image_path.is_file():
         raise FileNotFoundError(f"Missing sample image: {args.image_path}")
     _prepare_runtime_data(args)

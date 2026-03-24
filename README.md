@@ -14,11 +14,11 @@ The API is operational and includes:
 ## Overview
 
 - **Tech stack:** FastAPI, PyTorch, Transformers (Hugging Face), Pydantic v2, Uvicorn
-- **Purpose:** Score uploaded images against canonical tag vocabularies and profiles from mounted config files.
+- **Purpose:** Score uploaded images against canonical tag vocabularies and profiles bundled into the image.
 
 ## Repository Layout
 
-- `/config` (read-only): `auth.yaml`, `settings.yaml`, `tag_sets.yaml`, `profiles.yaml`, `prompts.yaml`
+- `/config` (read-only in the image): `auth.yaml`, `settings.yaml`, `tag_sets.yaml`, `profiles.yaml`, `prompts.yaml`
 - `/data` (read/write): `api_keys.json`, `embeddings/`, `model_cache/`
 - `/samples`: 20 sample JPG files for quick manual testing
 - `docker/Dockerfile`: image build definition
@@ -67,7 +67,7 @@ python3 -m pip install ".[dev]"
 
 Pytest markers:
 
-- `integration`: HTTP-level tests that exercise the API with mounted config/data and sample images.
+- `integration`: HTTP-level tests that exercise the API with bundled config, runtime data, and sample images.
 
 ## Docker Workflow
 
@@ -82,7 +82,6 @@ Run API container:
 ```bash
 docker run --rm -it \
   -p 8000:8000 \
-  -v "$PWD/config:/config:ro" \
   -v "$PWD/data:/data" \
   -v "$PWD/samples:/samples:ro" \
   -e VISION_FORGE_DEVICE=cpu \

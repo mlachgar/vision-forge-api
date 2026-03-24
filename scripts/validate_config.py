@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ruff: noqa: E402
-"""Validate mounted configuration files and supporting data directories."""
+"""Validate configuration files and supporting data directories."""
 
 from __future__ import annotations
 
@@ -32,7 +32,10 @@ def main() -> int:
         description="Ensure config files and directories meet expectations."
     )
     parser.add_argument(
-        "--config-dir", type=Path, default=Path("/config"), help="Mounted /config path"
+        "--config-dir",
+        type=Path,
+        default=Path("/config"),
+        help="Configuration directory",
     )
     parser.add_argument(
         "--data-dir", type=Path, default=Path("/data"), help="Mounted /data path"

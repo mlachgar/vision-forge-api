@@ -25,7 +25,10 @@ def main() -> int:
         description="Ensure the SigLIP model weights are cached locally."
     )
     parser.add_argument(
-        "--config-dir", type=Path, default=Path("/config"), help="Mounted /config path"
+        "--config-dir",
+        type=Path,
+        default=Path("/config"),
+        help="Configuration directory",
     )
     parser.add_argument(
         "--device", default=None, help="Preferred device (cpu, cuda, etc.)"
