@@ -36,6 +36,15 @@ def _parse_args() -> argparse.Namespace:
         help="Base URL exposed by the container",
     )
     parser.add_argument(
+        "--config-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Host path mounted into /config; omit to use the config bundled "
+            "in the image"
+        ),
+    )
+    parser.add_argument(
         "--data-dir",
         type=Path,
         default=Path("data"),
@@ -104,6 +113,7 @@ def _docker_logs(container_id: str) -> None:
 
 def _start_container(args: argparse.Namespace) -> str:
     container_name = f"vision-forge-smoke-{uuid.uuid4().hex[:12]}"
+    config_dir = getattr(args, "config_dir", None)
     command = [
         "docker",
         "run",
@@ -115,15 +125,26 @@ def _start_container(args: argparse.Namespace) -> str:
         "-p",
         "8000:8000",
         "-e",
-        "VISION_FORGE_CONFIG_DIR=/config",
-        "-e",
         "VISION_FORGE_DATA_DIR=/data",
         "-e",
         "VISION_FORGE_DEVICE=cpu",
-        "-v",
-        f"{args.data_dir.resolve()}:/data",
-        args.image,
     ]
+    if config_dir is not None:
+        command.extend(
+            [
+                "-e",
+                "VISION_FORGE_CONFIG_DIR=/config",
+                "-v",
+                f"{config_dir.resolve()}:/config:ro",
+            ]
+        )
+    command.extend(
+        [
+            "-v",
+            f"{args.data_dir.resolve()}:/data",
+            args.image,
+        ]
+    )
     result = _run(command, check=False)
     if result.returncode != 0:
         print("Failed to start smoke-test container with docker run:", file=sys.stderr)
@@ -184,6 +205,7 @@ def _seed_demo_api_keys(data_dir: Path, predict_token: str) -> None:
 
 
 def _prepare_runtime_data(args: argparse.Namespace) -> None:
+    config_dir = getattr(args, "config_dir", None)
     args.data_dir.mkdir(parents=True, exist_ok=True)
     (args.data_dir / "embeddings").mkdir(parents=True, exist_ok=True)
     (args.data_dir / "model_cache").mkdir(parents=True, exist_ok=True)
@@ -196,6 +218,9 @@ def _prepare_runtime_data(args: argparse.Namespace) -> None:
     ):
         path.chmod(0o777)
     _seed_demo_api_keys(args.data_dir, args.predict_token)
+    if config_dir is not None:
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_dir.chmod(0o755)
 
 
 def _stop_container(container_id: str) -> None:
