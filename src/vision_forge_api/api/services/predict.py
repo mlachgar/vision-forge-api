@@ -19,12 +19,15 @@ class PreparedPredictionRequest:
     canonical_tags: tuple[str, ...]
     extra_tags: tuple[str, ...]
     selected_tag_sets: tuple[str, ...]
+    resolved_profile: str
     limit: int
     min_score: float
 
 
 class PredictRequestService:
     """Validates and normalizes request inputs for prediction scoring."""
+
+    DEFAULT_PROFILE = "default"
 
     def __init__(self, context: AppContext) -> None:
         self._context = context
@@ -39,14 +42,11 @@ class PredictRequestService:
         extra_tags: str | None,
     ) -> PreparedPredictionRequest:
         tag_set_names = self._split_csv(tag_sets)
+        resolved_profile = profile or self.DEFAULT_PROFILE
         canonical_tags = self._resolve_canonical_tags(
-            profile=profile, tag_sets=tag_sets
+            profile=resolved_profile, tag_sets=tag_sets
         )
         extras = tuple(self._split_csv(extra_tags))
-        if not canonical_tags and not extras:
-            raise BadRequestError(
-                "At least one of profile, tag_sets, or extra_tags must be provided"
-            )
 
         limit_value = self._resolve_limit(limit)
         min_score_value = self._resolve_min_score(
@@ -59,6 +59,7 @@ class PredictRequestService:
             canonical_tags=canonical_tags,
             extra_tags=extras,
             selected_tag_sets=tuple(tag_set_names),
+            resolved_profile=resolved_profile,
             limit=limit_value,
             min_score=min_score_value,
         )
@@ -114,6 +115,6 @@ class PredictRequestService:
     @staticmethod
     def _resolve_min_score(min_score: float | None, default: float = 0.0) -> float:
         value = default if min_score is None else min_score
-        if value < -1.0 or value > 1.0:
-            raise BadRequestError("min_score must be between -1.0 and 1.0")
+        if value < 0.0 or value > 1.0:
+            raise BadRequestError("min_score must be between 0.0 and 1.0")
         return value

@@ -87,18 +87,20 @@ def test_predict_request_service_build_request_and_validation() -> None:
     assert prepared.canonical_tags == ("cat", "dog", "cat")
     assert prepared.extra_tags == ("x", "y")
     assert prepared.selected_tag_sets == ("animals",)
+    assert prepared.resolved_profile == "default"
     assert prepared.limit == 10
     assert prepared.min_score == 0.1
 
-    with pytest.raises(BadRequestError):
-        service.build_request(
-            file=_image_upload(),
-            limit=None,
-            min_score=None,
-            profile=None,
-            tag_sets=None,
-            extra_tags=None,
-        )
+    default_prepared = service.build_request(
+        file=_image_upload(),
+        limit=None,
+        min_score=None,
+        profile=None,
+        tag_sets=None,
+        extra_tags=None,
+    )
+    assert default_prepared.canonical_tags == ("cat", "dog")
+    assert default_prepared.resolved_profile == "default"
 
     with pytest.raises(BadRequestError):
         service.build_request(
@@ -114,7 +116,17 @@ def test_predict_request_service_build_request_and_validation() -> None:
         service.build_request(
             file=_image_upload(),
             limit=1,
-            min_score=2.0,
+            min_score=1.2,
+            profile="default",
+            tag_sets=None,
+            extra_tags=None,
+        )
+
+    with pytest.raises(BadRequestError):
+        service.build_request(
+            file=_image_upload(),
+            limit=1,
+            min_score=-0.1,
             profile="default",
             tag_sets=None,
             extra_tags=None,
@@ -286,8 +298,8 @@ async def test_predict_router_function() -> None:
         request=request,
         file=_image_upload(),
         limit=5,
-        min_score=-0.2,
-        profile="default",
+        min_score=0.2,
+        profile=None,
         tag_sets="animals",
         extra_tags="extra",
         _=_api_entry(),

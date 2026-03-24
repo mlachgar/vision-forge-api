@@ -108,6 +108,20 @@ def test_candidate_preparation_and_scoring_paths() -> None:
     assert built[0].score >= built[-1].score
 
 
+def test_build_predictions_normalizes_scores_and_filters_threshold() -> None:
+    svc = _service()
+
+    built = svc._build_predictions(
+        all_labels=["low", "mid", "high"],
+        all_is_extra=[False, False, False],
+        score_values=[-1.0, 0.0, 1.0],
+        min_score=0.5,
+    )
+
+    assert [item.canonical_tag for item in built] == ["mid", "high"]
+    assert [item.score for item in built] == [0.5, 1.0]
+
+
 def test_set_balancing_and_misc_helpers() -> None:
     svc = _service()
 

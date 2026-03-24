@@ -60,8 +60,8 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--profile",
-        default="default",
-        help="Profile query parameter used for /predict",
+        default=None,
+        help="Profile query parameter used for /predict; omit to use the default profile",
     )
     parser.add_argument(
         "--limit",
@@ -259,13 +259,16 @@ def _predict(
     base_url: str,
     token: str,
     image_path: Path,
-    profile: str,
+    profile: str | None,
     limit: int,
     request_timeout_seconds: int,
 ) -> dict[str, object]:
+    query: dict[str, object] = {"limit": limit}
+    if profile is not None:
+        query["profile"] = profile
     predict_url = urllib.parse.urljoin(
         base_url,
-        f"/predict?{urllib.parse.urlencode({'profile': profile, 'limit': limit})}",
+        f"/predict?{urllib.parse.urlencode(query)}",
     )
     boundary, body = _build_multipart(
         "file", image_path.name, image_path.read_bytes(), "image/jpeg"
@@ -313,7 +316,8 @@ def main() -> int:
             args.limit,
             args.predict_request_timeout_seconds,
         )
-        if predict_payload.get("meta", {}).get("profile") != args.profile:
+        expected_profile = args.profile or "default"
+        if predict_payload.get("meta", {}).get("profile") != expected_profile:
             raise RuntimeError(f"Unexpected predict response: {predict_payload!r}")
         if len(predict_payload.get("tags", [])) > args.limit:
             raise RuntimeError(f"Predict returned too many tags: {predict_payload!r}")

@@ -54,8 +54,8 @@ python3 -m pip install ".[dev]"
 - `/predict` uses two ranking stages:
   - coarse rank with cached per-tag embeddings
   - rerank top canonical candidates with prompt-level max similarity
-- For broad profiles (`profile=default`), a light per-set balancing penalty is applied to reduce single-set dominance.
-- Cosine scores are in `[-1.0, 1.0]`. Default `min_score` is configured in `config/settings.yaml`.
+- For the broad default profile, a light per-set balancing penalty is applied to reduce single-set dominance.
+- Scores are normalized to `0.0..1.0` before filtering and returning. Default `min_score` is configured in `config/settings.yaml`.
 
 ## Helper Scripts
 
@@ -262,11 +262,11 @@ curl -s "$BASE_URL/tag-sets"
 curl -s "$BASE_URL/profiles"
 ```
 
-Predict using default profile:
+Predict using the default profile:
 
 ```bash
 curl -s -X POST \
-  "$BASE_URL/predict?profile=default&limit=10" \
+  "$BASE_URL/predict?limit=10" \
   -H "Authorization: Bearer $PREDICT_TOKEN" \
   -F "file=@samples/snail.jpg"
 ```
@@ -330,7 +330,7 @@ curl -s -X POST "$BASE_URL/admin/reload" \
 
 ## Troubleshooting
 
-- If predictions are unexpectedly empty, lower `min_score` (for example `-0.05` to `-0.15`) and verify image decode works.
+- If predictions are unexpectedly empty, lower `min_score` only if you set one explicitly. Omitting `min_score` keeps the default filter at `0.0`, which does not drop any normalized scores.
 - After editing `config/tag_sets.yaml` or `config/prompts.yaml`, rerun:
 
 ```bash

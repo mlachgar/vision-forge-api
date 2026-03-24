@@ -26,7 +26,7 @@ class SettingsConfig(BaseModel):
     app_name: str = Field("vision-forge-api")
     default_limit: int = Field(20, ge=1)
     max_limit: int = Field(200, ge=1)
-    default_min_score: float = Field(-0.05, ge=-1.0, le=1.0)
+    default_min_score: float = Field(0.0, ge=0.0, le=1.0)
     embeddings_dir: Path = Field(Path("/data/embeddings"))
     model_cache_dir: Path = Field(Path("/data/model_cache"))
     siglip_model_id: str = Field("google/siglip-base-patch16-224")

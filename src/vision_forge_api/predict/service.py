@@ -238,7 +238,13 @@ class PredictionService:
             score_values[idx] = float(torch.max(prompt_scores).item())
 
     @staticmethod
+    def _normalize_score(score_value: float) -> float:
+        # SigLIP returns cosine similarities in [-1, 1]. Expose a normalized
+        # confidence-like score so callers can use familiar 0..1 thresholds.
+        return min(1.0, max(0.0, (score_value + 1.0) / 2.0))
+
     def _build_predictions(
+        self,
         all_labels: list[str],
         all_is_extra: list[bool],
         score_values: list[float],
@@ -246,10 +252,15 @@ class PredictionService:
     ) -> list[Prediction]:
         results: list[Prediction] = []
         for label, is_extra, score_value in zip(all_labels, all_is_extra, score_values):
-            if score_value < min_score:
+            normalized_score = self._normalize_score(score_value)
+            if normalized_score < min_score:
                 continue
             results.append(
-                Prediction(canonical_tag=label, score=score_value, is_extra=is_extra)
+                Prediction(
+                    canonical_tag=label,
+                    score=normalized_score,
+                    is_extra=is_extra,
+                )
             )
         results.sort(key=lambda item: item.score, reverse=True)
         return results

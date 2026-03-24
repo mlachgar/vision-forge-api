@@ -16,11 +16,11 @@ router = APIRouter(tags=["predict"])
 
 class TagResult(BaseModel):
     label: str
-    score: float = Field(ge=-1.0, le=1.0)
+    score: float = Field(ge=0.0, le=1.0)
 
 
 class PredictMeta(BaseModel):
-    profile: str | None = None
+    profile: str
     tag_sets: list[str]
     extra_tags: list[str]
     limit: int
@@ -68,7 +68,7 @@ async def predict(
             for prediction in predictions
         ],
         meta=PredictMeta(
-            profile=profile,
+            profile=prepared.resolved_profile,
             tag_sets=list(prepared.selected_tag_sets),
             extra_tags=list(prepared.extra_tags),
             limit=prepared.limit,

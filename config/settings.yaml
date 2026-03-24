@@ -1,7 +1,7 @@
 app_name: vision-forge-api
 default_limit: 20
 max_limit: 200
-default_min_score: -0.05
+default_min_score: 0.0
 embeddings_dir: /data/embeddings
 model_cache_dir: /data/model_cache
 siglip_model_id: google/siglip-base-patch16-224

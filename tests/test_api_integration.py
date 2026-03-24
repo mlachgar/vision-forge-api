@@ -205,38 +205,34 @@ def test_predict_accepts_sample_images(
 ) -> None:
     sample_path = ROOT / "samples" / sample_name
     assert sample_path.is_file(), sample_path
-    profile_name = app.state.context.tag_catalog.list_profiles()[0].name
-    tag_set_name = app.state.context.tag_catalog.list_tag_sets()[0].name
-
     response = client.post(
         "/predict",
         headers=predict_headers,
-        params={"profile": profile_name, "tag_sets": tag_set_name, "limit": 3},
+        params={"limit": 3},
         files={"file": (sample_path.name, sample_path.read_bytes(), "image/jpeg")},
     )
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["meta"]["profile"] == profile_name
+    assert payload["meta"]["profile"] == "default"
     assert payload["meta"]["limit"] == 3
-    assert payload["meta"]["tag_sets"] == [tag_set_name]
+    assert payload["meta"]["tag_sets"] == []
     assert 1 <= len(payload["tags"]) <= 3
     assert payload["tags"] == sorted(
         payload["tags"], key=lambda item: item["score"], reverse=True
     )
     for item in payload["tags"]:
-        assert -1.0 <= item["score"] <= 1.0
+        assert 0.0 <= item["score"] <= 1.0
 
 
 def test_predict_requires_predict_role(
     client: TestClient, app: FastAPI, admin_only_headers: dict[str, str]
 ) -> None:
     sample_path = ROOT / "samples" / "cat.jpg"
-    profile_name = app.state.context.tag_catalog.list_profiles()[0].name
     response = client.post(
         "/predict",
         headers=admin_only_headers,
-        params={"profile": profile_name, "limit": 2},
+        params={"limit": 2},
         files={"file": (sample_path.name, sample_path.read_bytes(), "image/jpeg")},
     )
 
