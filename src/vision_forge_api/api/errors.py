@@ -30,6 +30,11 @@ class ConflictError(ApiError):
         super().__init__(detail=detail, status_code=409)
 
 
+class ServiceUnavailableError(ApiError):
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail=detail, status_code=503)
+
+
 class ApiKeyNotFoundError(NotFoundError):
     def __init__(self) -> None:
         super().__init__(detail="API key not found")

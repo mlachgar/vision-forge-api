@@ -64,6 +64,8 @@ when needed.
 The prediction model is loaded during startup and the app warms the prediction
 pipeline before serving requests. Batch jobs are queued in memory, so they are
 fast for live processing but are not durable across process restarts.
+Finished batch jobs are retained for 15 minutes, and the in-memory job store
+is capped at 5,000 retained items to prevent unbounded growth.
 
 ## API Surface
 

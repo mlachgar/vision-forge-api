@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -59,16 +60,23 @@ def _api_entry() -> ApiKeyEntry:
 
 
 def test_predict_request_service_build_request_and_validation() -> None:
+    def _profile_detail(profile: str) -> SimpleNamespace:
+        if profile == "default":
+            return SimpleNamespace(canonical_tags=("cat", "dog"))
+        raise KeyError("bad profile")
+
+    def _resolve_canonical_tags(names) -> tuple[str, ...]:
+        values: list[str] = []
+        for name in names:
+            if name == "animals":
+                values.append("cat")
+            else:
+                raise KeyError("bad set")
+        return tuple(values)
+
     tag_catalog = SimpleNamespace(
-        profile_detail=lambda profile: (
-            SimpleNamespace(canonical_tags=("cat", "dog"))
-            if profile == "default"
-            else (_ for _ in ()).throw(KeyError("bad profile"))
-        ),
-        resolve_canonical_tags=lambda names: tuple(
-            "cat" if n == "animals" else (_ for _ in ()).throw(KeyError("bad set"))
-            for n in names
-        ),
+        profile_detail=_profile_detail,
+        resolve_canonical_tags=_resolve_canonical_tags,
     )
     context = SimpleNamespace(
         settings=SimpleNamespace(default_limit=5, max_limit=10, default_min_score=0.1),
@@ -89,7 +97,7 @@ def test_predict_request_service_build_request_and_validation() -> None:
     assert prepared.selected_tag_sets == ("animals",)
     assert prepared.resolved_profile == "default"
     assert prepared.limit == 10
-    assert prepared.min_score == 0.1
+    assert prepared.min_score == pytest.approx(0.1)
 
     default_prepared = service.build_request(
         file=_image_upload(),
@@ -145,15 +153,17 @@ def test_predict_request_service_build_request_and_validation() -> None:
 
 
 def test_predict_request_service_collects_tag_set_errors() -> None:
+    def _missing_profile(_profile: str) -> None:
+        raise KeyError("missing profile")
+
+    def _missing_set(_names) -> None:
+        raise KeyError("missing set")
+
     context = SimpleNamespace(
         settings=SimpleNamespace(default_limit=5, max_limit=10, default_min_score=0.1),
         tag_catalog=SimpleNamespace(
-            profile_detail=lambda _profile: (_ for _ in ()).throw(
-                KeyError("missing profile")
-            ),
-            resolve_canonical_tags=lambda _names: (_ for _ in ()).throw(
-                KeyError("missing set")
-            ),
+            profile_detail=_missing_profile,
+            resolve_canonical_tags=_missing_set,
         ),
     )
     service = PredictRequestService(context)
@@ -362,10 +372,11 @@ def test_create_app_and_version_resolution(
             calls["warmup"] = True
 
     class _JobService:
-        async def start(self) -> None:
+        def start(self) -> None:
             calls["job_start"] = True
 
         async def stop(self) -> None:
+            await asyncio.sleep(0)
             calls["job_stop"] = True
 
     fake_context = SimpleNamespace(

@@ -43,7 +43,7 @@ def create_app(config_dir: Path | str | None = None) -> FastAPI:
         except Exception:
             logger.exception("Prediction warmup failed; continuing without preload")
         if context.prediction_job_service is not None:
-            await context.prediction_job_service.start()
+            context.prediction_job_service.start()
         try:
             yield
         finally:

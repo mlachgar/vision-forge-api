@@ -60,6 +60,8 @@ python3 -m pip install ".[dev]"
   - use it when you want higher throughput on photo bursts
   - keep `/predict` for single-image, immediate responses
   - queued jobs are not persisted across process restarts in this version
+  - finished jobs are retained for 15 minutes, then cleaned up
+  - the in-memory job store is capped at 5,000 retained items
 
 ## Helper Scripts
 

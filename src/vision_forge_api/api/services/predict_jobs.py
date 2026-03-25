@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from contextlib import suppress
 from io import BytesIO
 from typing import TYPE_CHECKING, Sequence
 from uuid import uuid4
@@ -13,7 +14,7 @@ from uuid import uuid4
 from PIL import Image
 from fastapi import UploadFile
 
-from ..errors import BadRequestError, NotFoundError
+from ..errors import BadRequestError, NotFoundError, ServiceUnavailableError
 from .predict import PreparedPredictionOptions
 
 if TYPE_CHECKING:
@@ -32,6 +33,16 @@ ITEM_STATUS_RUNNING = "running"
 ITEM_STATUS_DONE = "done"
 ITEM_STATUS_FAILED = "failed"
 
+JOB_TTL_SECONDS = 15 * 60
+MAX_STORED_ITEMS = 5000
+CLEANUP_INTERVAL_SECONDS = 60.0
+_TERMINAL_JOB_STATUSES = {
+    JOB_STATUS_DONE,
+    JOB_STATUS_PARTIAL,
+    JOB_STATUS_FAILED,
+    JOB_STATUS_CANCELED,
+}
+
 
 @dataclass(slots=True)
 class PredictJobItemResult:
@@ -49,6 +60,7 @@ class PredictJobRecord:
     total_items: int = 0
     completed_items: int = 0
     failed_items: int = 0
+    finished_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     items: list[PredictJobItemResult] = field(default_factory=list)
@@ -80,28 +92,34 @@ class PredictJobService:
         self._queue: asyncio.Queue[_QueuedItem | None] = asyncio.Queue()
         self._jobs: dict[str, PredictJobRecord] = {}
         self._worker_task: asyncio.Task[None] | None = None
+        self._reaper_task: asyncio.Task[None] | None = None
         self._stopping = False
 
-    async def start(self) -> None:
-        if self._worker_task is not None:
+    def start(self) -> None:
+        if self._worker_task is not None or self._reaper_task is not None:
             return
         self._stopping = False
         self._worker_task = asyncio.create_task(
             self._worker(), name="predict-job-worker"
         )
+        self._reaper_task = asyncio.create_task(
+            self._reaper(), name="predict-job-reaper"
+        )
 
     async def stop(self) -> None:
         self._stopping = True
+        if self._reaper_task is not None:
+            self._reaper_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._reaper_task
+            self._reaper_task = None
         if self._worker_task is None:
             return
         await self._queue.put(None)
         self._worker_task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await self._worker_task
-        except asyncio.CancelledError:
-            pass
-        finally:
-            self._worker_task = None
+        self._worker_task = None
 
     async def submit_job(
         self,
@@ -112,6 +130,12 @@ class PredictJobService:
         if not files:
             raise BadRequestError("at least one file is required")
 
+        requested_items = len(files)
+        if requested_items > MAX_STORED_ITEMS:
+            raise ServiceUnavailableError(
+                "prediction job is too large, please submit fewer items"
+            )
+
         payloads: list[tuple[str, bytes]] = []
         for upload in files:
             filename = (upload.filename or "").strip()
@@ -121,6 +145,12 @@ class PredictJobService:
             if not payload:
                 raise BadRequestError(f"file '{filename}' is empty")
             payloads.append((filename, payload))
+
+        self._cleanup_retained_jobs(trim_to_capacity=True)
+        if self._retained_items_count() + requested_items > MAX_STORED_ITEMS:
+            raise ServiceUnavailableError(
+                "prediction job queue is at capacity, please retry later"
+            )
 
         job_id = uuid4().hex
         record = PredictJobRecord(job_id=job_id, total_items=len(payloads))
@@ -145,12 +175,14 @@ class PredictJobService:
         return self._snapshot(record)
 
     def get_job(self, job_id: str) -> PredictJobRecord:
+        self._cleanup_retained_jobs()
         record = self._jobs.get(job_id)
         if record is None:
             raise NotFoundError(f"prediction job '{job_id}' not found")
         return self._snapshot(record)
 
     def cancel_job(self, job_id: str) -> PredictJobRecord:
+        self._cleanup_retained_jobs()
         record = self._jobs.get(job_id)
         if record is None:
             raise NotFoundError(f"prediction job '{job_id}' not found")
@@ -160,7 +192,9 @@ class PredictJobService:
             JOB_STATUS_FAILED,
         }:
             record.status = JOB_STATUS_CANCELED
+            self._mark_finished(record)
             self._touch(record)
+            self._cleanup_retained_jobs(trim_to_capacity=True)
         return self._snapshot(record)
 
     @staticmethod
@@ -180,6 +214,10 @@ class PredictJobService:
         record.updated_at = datetime.now(timezone.utc)
 
     @staticmethod
+    def _now() -> datetime:
+        return datetime.now(timezone.utc)
+
+    @staticmethod
     def _snapshot(record: PredictJobRecord) -> PredictJobRecord:
         return PredictJobRecord(
             job_id=record.job_id,
@@ -187,6 +225,7 @@ class PredictJobService:
             total_items=record.total_items,
             completed_items=record.completed_items,
             failed_items=record.failed_items,
+            finished_at=record.finished_at,
             created_at=record.created_at,
             updated_at=record.updated_at,
             items=[
@@ -205,16 +244,22 @@ class PredictJobService:
         if record.status == JOB_STATUS_CANCELED:
             return JOB_STATUS_CANCELED
         if record.completed_items == record.total_items and record.total_items > 0:
-            return (
-                JOB_STATUS_FAILED
-                if record.failed_items == record.total_items
-                else (
-                    JOB_STATUS_PARTIAL if record.failed_items > 0 else JOB_STATUS_DONE
-                )
-            )
+            if record.failed_items == record.total_items:
+                return JOB_STATUS_FAILED
+            if record.failed_items > 0:
+                return JOB_STATUS_PARTIAL
+            return JOB_STATUS_DONE
         if record.completed_items > 0 or record.failed_items > 0:
             return JOB_STATUS_RUNNING
         return JOB_STATUS_QUEUED
+
+    @staticmethod
+    def _is_terminal(record: PredictJobRecord) -> bool:
+        return record.status in _TERMINAL_JOB_STATUSES
+
+    def _mark_finished(self, record: PredictJobRecord) -> None:
+        if record.finished_at is None:
+            record.finished_at = self._now()
 
     def _finalize_job(self, record: PredictJobRecord) -> None:
         if record.status == JOB_STATUS_CANCELED:
@@ -228,7 +273,10 @@ class PredictJobService:
                 record.status = JOB_STATUS_FAILED
             else:
                 record.status = JOB_STATUS_PARTIAL
+            self._mark_finished(record)
         self._touch(record)
+        if self._is_terminal(record):
+            self._cleanup_retained_jobs(trim_to_capacity=True)
 
     def _mark_item_running(
         self, item: PredictJobItemResult, record: PredictJobRecord
@@ -265,91 +313,164 @@ class PredictJobService:
         except Exception as exc:
             raise BadRequestError("Unable to decode image payload") from exc
 
-    async def _process_batch(self, batch: list[_QueuedItem]) -> None:
-        if not batch:
+    def _retained_items_count(self) -> int:
+        return sum(record.total_items for record in self._jobs.values())
+
+    def _cleanup_retained_jobs(self, *, trim_to_capacity: bool = False) -> None:
+        now = self._now()
+        ttl = timedelta(seconds=JOB_TTL_SECONDS)
+
+        expired_job_ids = [
+            job_id
+            for job_id, record in self._jobs.items()
+            if self._is_terminal(record)
+            and record.finished_at is not None
+            and now - record.finished_at >= ttl
+        ]
+        for job_id in expired_job_ids:
+            del self._jobs[job_id]
+
+        if not trim_to_capacity:
             return
+
+        retained_items = self._retained_items_count()
+        if retained_items <= MAX_STORED_ITEMS:
+            return
+
+        terminal_jobs = sorted(
+            (record for record in self._jobs.values() if self._is_terminal(record)),
+            key=lambda record: (
+                record.finished_at or record.updated_at,
+                record.created_at,
+                record.job_id,
+            ),
+        )
+        for record in terminal_jobs:
+            if retained_items <= MAX_STORED_ITEMS:
+                break
+            del self._jobs[record.job_id]
+            retained_items -= record.total_items
+
+    def _group_batch(self, batch: list[_QueuedItem]) -> dict[str, list[_QueuedItem]]:
         grouped: dict[str, list[_QueuedItem]] = defaultdict(list)
         for item in batch:
             grouped[item.options_signature].append(item)
+        return grouped
 
-        for signature_items in grouped.values():
-            items = list(signature_items)
-            options = items[0].options
-            records = []
-            images: list[Image.Image] = []
-            for queued in items:
-                record = self._jobs.get(queued.job_id)
-                if record is None or record.status == JOB_STATUS_CANCELED:
-                    continue
-                item_record = next(
-                    (
-                        entry
-                        for entry in record.items
-                        if entry.item_id == queued.item_id
-                    ),
-                    None,
-                )
-                if item_record is None:
-                    continue
-                self._mark_item_running(item_record, record)
-                try:
-                    images.append(self._decode_image(queued.payload))
-                except BadRequestError as exc:
-                    self._mark_item_failed(item_record, record, str(exc))
-                    continue
-                records.append((record, item_record))
+    def _prepare_signature_batch(
+        self, signature_items: Sequence[_QueuedItem]
+    ) -> tuple[
+        PreparedPredictionOptions | None,
+        list[tuple[PredictJobRecord, PredictJobItemResult]],
+        list[Image.Image],
+    ]:
+        items = list(signature_items)
+        if not items:
+            return None, [], []
 
-            if not images:
+        options = items[0].options
+        staged_records: list[tuple[PredictJobRecord, PredictJobItemResult]] = []
+        images: list[Image.Image] = []
+        for queued in items:
+            record = self._jobs.get(queued.job_id)
+            if record is None or record.status == JOB_STATUS_CANCELED:
                 continue
-
-            predictions = self._context.prediction_service.score_images(
-                images=tuple(images),
-                canonical_tags=options.canonical_tags,
-                extra_labels=options.extra_tags,
-                min_score=options.min_score,
-                limit=options.limit,
+            item_record = next(
+                (entry for entry in record.items if entry.item_id == queued.item_id),
+                None,
             )
+            if item_record is None:
+                continue
+            self._mark_item_running(item_record, record)
+            try:
+                images.append(self._decode_image(queued.payload))
+            except BadRequestError as exc:
+                self._mark_item_failed(item_record, record, str(exc))
+                continue
+            staged_records.append((record, item_record))
+        return options, staged_records, images
 
-            for (record, item_record), item_predictions in zip(records, predictions):
-                self._mark_item_done(
-                    item_record,
-                    record,
-                    [(pred.canonical_tag, pred.score) for pred in item_predictions],
-                )
+    def _apply_predictions(
+        self,
+        staged_records: list[tuple[PredictJobRecord, PredictJobItemResult]],
+        predictions: Sequence[Sequence[object]],
+    ) -> None:
+        for (record, item_record), item_predictions in zip(staged_records, predictions):
+            normalized_predictions: list[tuple[str, float]] = []
+            for prediction in item_predictions:
+                canonical_tag = getattr(prediction, "canonical_tag", None)
+                score = getattr(prediction, "score", None)
+                if canonical_tag is None or score is None:
+                    continue
+                normalized_predictions.append((canonical_tag, float(score)))
+            self._mark_item_done(item_record, record, normalized_predictions)
+
+    def _process_signature_batch(self, signature_items: Sequence[_QueuedItem]) -> None:
+        options, staged_records, images = self._prepare_signature_batch(signature_items)
+        if options is None or not images:
+            return
+        predictions = self._context.prediction_service.score_images(
+            images=tuple(images),
+            canonical_tags=options.canonical_tags,
+            extra_labels=options.extra_tags,
+            min_score=options.min_score,
+            limit=options.limit,
+        )
+        self._apply_predictions(staged_records, predictions)
+
+    def _process_batch(self, batch: list[_QueuedItem]) -> None:
+        if not batch:
+            return
+        grouped = self._group_batch(batch)
+        for signature_items in grouped.values():
+            self._process_signature_batch(signature_items)
+
+    def _take_pending_batch(
+        self, pending: dict[str, list[_QueuedItem]]
+    ) -> list[_QueuedItem] | None:
+        if not pending:
+            return None
+        signature = min(
+            pending.keys(),
+            key=lambda key: self._jobs[pending[key][0].job_id].created_at,
+        )
+        batch = pending[signature][: self._batch_size]
+        del pending[signature][: self._batch_size]
+        if not pending[signature]:
+            del pending[signature]
+        return batch
+
+    def _drain_pending_queue(self, pending: dict[str, list[_QueuedItem]]) -> None:
+        while True:
+            try:
+                drained = self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            if drained is None:
+                self._stopping = True
+                return
+            pending[drained.options_signature].append(drained)
 
     async def _worker(self) -> None:
         pending: dict[str, list[_QueuedItem]] = defaultdict(list)
-        try:
-            while not self._stopping:
-                queued = await self._queue.get()
-                if queued is None:
+        while not self._stopping:
+            queued = await self._queue.get()
+            if queued is None:
+                break
+            pending[queued.options_signature].append(queued)
+
+            if self._flush_interval_seconds:
+                await asyncio.sleep(self._flush_interval_seconds)
+
+            self._drain_pending_queue(pending)
+
+            while pending and not self._stopping:
+                batch = self._take_pending_batch(pending)
+                if batch is None:
                     break
-                pending[queued.options_signature].append(queued)
+                self._process_batch(batch)
 
-                if self._flush_interval_seconds:
-                    await asyncio.sleep(self._flush_interval_seconds)
-
-                while True:
-                    try:
-                        drained = self._queue.get_nowait()
-                    except asyncio.QueueEmpty:
-                        break
-                    if drained is None:
-                        self._stopping = True
-                        break
-                    pending[drained.options_signature].append(drained)
-
-                while pending:
-                    signature = min(
-                        pending.keys(),
-                        key=lambda key: self._jobs[pending[key][0].job_id].created_at,
-                    )
-                    batch = pending[signature][: self._batch_size]
-                    del pending[signature][: self._batch_size]
-                    if not pending[signature]:
-                        del pending[signature]
-                    await self._process_batch(batch)
-                    if self._stopping:
-                        break
-        except asyncio.CancelledError:
-            raise
+    async def _reaper(self) -> None:
+        while not self._stopping:
+            await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
+            self._cleanup_retained_jobs(trim_to_capacity=True)
