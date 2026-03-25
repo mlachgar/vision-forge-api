@@ -31,6 +31,7 @@ class _PredictionServiceStub:
 async def test_process_batch_updates_job_state() -> None:
     context = SimpleNamespace(prediction_service=_PredictionServiceStub())
     service = PredictJobService(context)
+    service._decode_image = lambda _payload: SimpleNamespace(width=1, height=1)
     options = PreparedPredictionOptions(
         canonical_tags=("cat",),
         extra_tags=(),

@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from PIL import Image
 from fastapi import UploadFile
 
-from ..context import AppContext
 from ..errors import BadRequestError
+
+if TYPE_CHECKING:
+    from ..context import AppContext
 
 
 @dataclass(frozen=True)
