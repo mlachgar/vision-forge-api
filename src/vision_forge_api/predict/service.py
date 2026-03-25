@@ -216,7 +216,8 @@ class PredictionService:
         image_vector: torch.Tensor, all_vectors: list[torch.Tensor]
     ) -> list[float]:
         candidate_tensor = torch.stack(all_vectors, dim=0)
-        image_column = image_vector.reshape(-1, 1)
+        image_vector_1d = image_vector[0] if image_vector.ndim > 1 else image_vector
+        image_column = image_vector_1d.unsqueeze(-1)
         scores_tensor = torch.matmul(candidate_tensor, image_column).squeeze(-1)
         return scores_tensor.tolist()
 
@@ -242,7 +243,8 @@ class PredictionService:
             prompt_vectors = self._get_prompt_vectors(label)
             if prompt_vectors.numel() == 0:
                 continue
-            image_column = image_vector.reshape(-1, 1)
+            image_vector_1d = image_vector[0] if image_vector.ndim > 1 else image_vector
+            image_column = image_vector_1d.unsqueeze(-1)
             prompt_scores = torch.matmul(prompt_vectors, image_column).squeeze(-1)
             score_values[idx] = float(torch.max(prompt_scores).item())
 
