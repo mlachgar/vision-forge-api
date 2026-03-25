@@ -78,3 +78,36 @@ def test_create_api_key_duplicate_name_raises_conflict() -> None:
 
     with pytest.raises(ConflictError):
         service.create_api_key(name="dup", roles=None, enabled=None)
+
+
+def test_create_api_key_uses_defaults_and_reload_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = _context([_entry("existing")])
+    service = AdminService(context)
+    seen: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "vision_forge_api.api.services.admin.build_context",
+        lambda loader, version: seen.setdefault(
+            "context", SimpleNamespace(loader=loader, version=version)
+        ),
+    )
+
+    created = service.create_api_key(name="new-key", roles=None, enabled=None)
+
+    assert created.token == "token-value"
+    assert created.roles == ("predict",)
+    assert created.enabled is True
+    assert [entry.name for entry in context.api_key_repo.read_all()] == [
+        "existing",
+        "new-key",
+    ]
+    assert [entry.name for entry in context.auth_cache.entries] == [
+        "existing",
+        "new-key",
+    ]
+
+    reloaded = service.reload_configuration()
+    assert reloaded.loader is context.loader
+    assert reloaded.version == context.version

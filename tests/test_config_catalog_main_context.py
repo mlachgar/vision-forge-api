@@ -7,6 +7,7 @@ import pytest
 
 import vision_forge_api
 from vision_forge_api import main as main_mod
+from vision_forge_api.config import loader as loader_mod
 from vision_forge_api.api import context_builder
 from vision_forge_api.catalog.service import TagCatalog
 from vision_forge_api.config.loader import ConfigLoader, _read_yaml
@@ -75,6 +76,43 @@ def test_read_yaml_validation_errors(tmp_path: Path) -> None:
     invalid.write_text("- not-a-mapping\n", encoding="utf-8")
     with pytest.raises(ValueError):
         _read_yaml(invalid)
+
+    empty = tmp_path / "empty.yaml"
+    empty.write_text("null\n", encoding="utf-8")
+    assert _read_yaml(empty) == {}
+
+
+def test_config_loader_uses_default_directory_when_env_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_dir = tmp_path / "default-config"
+    config_dir.mkdir()
+    _write_yaml(config_dir / "auth.yaml", "token_prefix: vfk_\n")
+    _write_yaml(
+        config_dir / "settings.yaml",
+        """
+app_name: app
+embeddings_dir: data/emb
+model_cache_dir: data/model
+siglip_model_id: google/siglip-base-patch16-224
+""".strip(),
+    )
+    _write_yaml(config_dir / "tag_sets.yaml", "tag_sets: []\n")
+    _write_yaml(config_dir / "profiles.yaml", "profiles: []\n")
+    _write_yaml(config_dir / "prompts.yaml", "prompts: []\n")
+
+    monkeypatch.delenv("VISION_FORGE_CONFIG_DIR", raising=False)
+    monkeypatch.setattr(loader_mod, "DEFAULT_CONFIG_DIR", config_dir)
+
+    loader = ConfigLoader()
+
+    assert loader.config_dir == config_dir
+    assert loader.load_auth().token_prefix == "vfk_"
+
+
+def test_config_loader_raises_for_missing_directory(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        ConfigLoader(tmp_path / "missing")
 
 
 def _catalog() -> TagCatalog:
@@ -255,3 +293,60 @@ def test_package_and_main_entrypoints(monkeypatch: pytest.MonkeyPatch) -> None:
         "host": "127.0.0.1",
         "port": 9090,
     }
+
+
+def test_package_create_app_delegates_to_api_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "vision_forge_api.api.app.create_app",
+        lambda config_dir=None: called.update({"config_dir": config_dir}) or "app",
+    )
+
+    app = vision_forge_api.create_app("/tmp/config")
+
+    assert app == "app"
+    assert called["config_dir"] == "/tmp/config"
+
+
+def test_main_uses_default_environment_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called: dict[str, object] = {}
+
+    monkeypatch.delenv("VISION_FORGE_HOST", raising=False)
+    monkeypatch.delenv("VISION_FORGE_PORT", raising=False)
+    monkeypatch.delenv("VISION_FORGE_CONFIG_DIR", raising=False)
+    monkeypatch.setattr(main_mod, "create_app", lambda config_dir: "app")
+    monkeypatch.setattr(
+        main_mod.uvicorn,
+        "run",
+        lambda app, host, port: called.update({"app": app, "host": host, "port": port}),
+    )
+
+    main_mod.main()
+
+    assert called == {"app": "app", "host": "0.0.0.0", "port": 8000}
+
+
+def test_main_module_guard_executes_main(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "vision_forge_api.api.app.create_app", lambda config_dir=None: "app"
+    )
+    monkeypatch.setattr(
+        main_mod.uvicorn,
+        "run",
+        lambda app, host, port: called.update({"app": app, "host": host, "port": port}),
+    )
+
+    import runpy
+
+    runpy.run_module("vision_forge_api.main", run_name="__main__")
+
+    assert called == {"app": "app", "host": "0.0.0.0", "port": 8000}

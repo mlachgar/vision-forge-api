@@ -474,3 +474,44 @@ def test_create_app_and_version_resolution(
 
     monkeypatch.setattr(app_mod, "pkg_version", _raise)
     assert app_mod.resolve_version() == app_mod.CONFIG_VERSION
+
+
+def test_create_app_continues_when_warmup_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    class _Loader:
+        def __init__(self, config_dir):
+            self.config_dir = config_dir
+
+    class _PredictionService:
+        def warmup(self) -> None:
+            raise RuntimeError("boom")
+
+    class _JobService:
+        def start(self) -> None:
+            self.started = True
+
+        async def stop(self) -> None:
+            self.stopped = True
+
+    fake_context = SimpleNamespace(
+        settings=SimpleNamespace(app_name="vf"),
+        version="x",
+        prediction_service=_PredictionService(),
+        prediction_job_service=_JobService(),
+    )
+
+    monkeypatch.setattr(app_mod, "ConfigLoader", _Loader)
+    monkeypatch.setattr(app_mod, "build_context", lambda loader, version: fake_context)
+    monkeypatch.setattr(app_mod, "register_exception_handlers", lambda app: None)
+    monkeypatch.setattr(app_mod, "resolve_version", lambda: "2.0.0")
+
+    app = app_mod.create_app(tmp_path)
+
+    from fastapi.testclient import TestClient
+
+    with TestClient(app):
+        pass
+
+    assert fake_context.prediction_job_service.started is True
+    assert fake_context.prediction_job_service.stopped is True

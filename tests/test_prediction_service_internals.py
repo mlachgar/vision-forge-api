@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from pathlib import Path
 
 import torch
 
@@ -95,6 +96,51 @@ def test_vector_cache_and_prompt_helpers() -> None:
     assert primary_index["cat"] == "animals"
 
 
+def test_constructor_and_prompt_cache_paths(tmp_path: Path) -> None:
+    svc = PredictionService(_CatalogStub(), _SiglipStub(), tmp_path)
+
+    assert set(svc._vectors) == {"cat", "dog"}
+    assert svc._build_prompt_vector_cache()["cat"].shape[-1] == 2
+    assert svc.build_caption([Prediction("cat", 0.9, False)]) == "An image showing cat."
+    assert (
+        svc.build_caption(
+            [Prediction("cat", 0.9, False), Prediction("dog", 0.8, False)]
+        )
+        == "An image showing cat and dog."
+    )
+    assert (
+        svc.build_caption(
+            [
+                Prediction("cat", 0.9, False),
+                Prediction("dog", 0.8, False),
+                Prediction("tree", 0.7, False),
+            ]
+        )
+        == "An image showing cat, dog, and tree."
+    )
+
+
+def test_vector_cache_refreshes_when_metadata_changes(monkeypatch) -> None:
+    svc = _service()
+    svc._store = _StoreStub(
+        vectors={"cat": (0.0, 1.0)},
+        metadata={"format_version": 1, "model_id": "old-model"},
+    )
+    calls: dict[str, object] = {}
+
+    def _compute_missing_embeddings(tags):
+        calls["missing"] = tuple(tags)
+        return {tag: (0.5, 0.5) for tag in tags}
+
+    monkeypatch.setattr(svc, "_compute_missing_embeddings", _compute_missing_embeddings)
+
+    cache = svc._build_vector_cache()
+
+    assert calls["missing"] == ("cat", "dog")
+    assert set(cache.keys()) == {"cat", "dog"}
+    assert svc._store.persist_calls[-1][1] == svc._siglip.model_id
+
+
 def test_candidate_preparation_and_scoring_paths() -> None:
     svc = _service()
 
@@ -115,6 +161,84 @@ def test_candidate_preparation_and_scoring_paths() -> None:
     built = svc._build_predictions(labels, is_extra, scores, min_score=-1.0)
     assert built
     assert built[0].score >= built[-1].score
+
+
+def test_prompt_vector_and_balance_helpers() -> None:
+    svc = _service()
+
+    cached = svc._get_prompt_vectors("cat")
+    assert cached is svc._prompt_vectors["cat"]
+
+    uncached = svc._get_prompt_vectors("missing")
+    assert uncached.numel() > 0
+
+    selected_set_counts: dict[str, int] = {}
+    svc._register_selected_set(Prediction("free", 0.7, True), selected_set_counts)
+    assert selected_set_counts == {}
+
+    vectors, labels, is_extra, canonical = svc._prepare_candidates(
+        canonical_tags=("cat", "missing"),
+        extra_labels=("extra",),
+    )
+    assert labels == ["cat", "extra"]
+    assert canonical == ["cat"]
+
+    assert svc._rerank_top_canonical([], [], torch.tensor([1.0]), limit=1) is None
+
+    scores = [0.8]
+    svc._get_prompt_vectors = lambda label: torch.tensor([])
+    svc._rerank_top_canonical(scores, ["cat"], torch.tensor([1.0]), limit=1)
+    assert scores == [0.8]
+
+
+def test_compute_missing_embeddings_handles_zero_weight_and_default_prompt() -> None:
+    class _PromptCatalog:
+        def canonical_tags(self):
+            return ("zero", "empty")
+
+        def prompts_for_tag(self, tag: str):
+            if tag == "zero":
+                return (TagPrompt(template="skip {tag}", weight=0.0),)
+            return ()
+
+        def list_tag_sets(self):
+            return ()
+
+    svc = object.__new__(PredictionService)
+    svc._catalog = _PromptCatalog()
+    svc._siglip = _SiglipStub()
+
+    embeddings = svc._compute_missing_embeddings(("zero", "empty"))
+
+    assert set(embeddings) == {"zero", "empty"}
+    assert all(len(vector) == 2 for vector in embeddings.values())
+
+    svc._prompt_vectors = {}
+    prompt_vectors = svc._get_prompt_vectors("zero")
+    assert prompt_vectors.shape[-1] == 2
+
+
+def test_compute_missing_embeddings_falls_back_on_bad_prompts() -> None:
+    class _PromptCatalog:
+        def canonical_tags(self):
+            return ("broken", "empty")
+
+        def prompts_for_tag(self, tag: str):
+            if tag == "broken":
+                return (TagPrompt(template="bad {missing}", weight=1.0),)
+            return ()
+
+        def list_tag_sets(self):
+            return ()
+
+    svc = object.__new__(PredictionService)
+    svc._catalog = _PromptCatalog()
+    svc._siglip = _SiglipStub()
+
+    embeddings = svc._compute_missing_embeddings(("broken", "empty"))
+
+    assert set(embeddings) == {"broken", "empty"}
+    assert all(len(vector) == 2 for vector in embeddings.values())
 
 
 def test_build_predictions_normalizes_scores_and_filters_threshold() -> None:
@@ -173,6 +297,52 @@ def test_score_image_full_flow() -> None:
         limit=5,
     )
     assert empty == []
+
+
+def test_score_images_handles_empty_inputs() -> None:
+    svc = _service()
+
+    assert (
+        svc.score_images(
+            images=(),
+            canonical_tags=("cat",),
+            extra_labels=(),
+            min_score=-1.0,
+            limit=2,
+        )
+        == []
+    )
+
+    svc._prepare_candidates = lambda canonical_tags, extra_labels: ([], [], [], [])
+    assert svc.score_images(
+        images=(SimpleNamespace(), SimpleNamespace()),
+        canonical_tags=("cat",),
+        extra_labels=(),
+        min_score=-1.0,
+        limit=2,
+    ) == [[], []]
+
+
+def test_score_images_uses_balancing_branch() -> None:
+    svc = _service()
+    svc._prepare_candidates = lambda canonical_tags, extra_labels: (
+        [torch.tensor([1.0, 0.0]), torch.tensor([0.5, 0.5])],
+        ["cat", "dog"],
+        [False, False],
+        ["cat", "dog"],
+    )
+    svc._crosses_multiple_sets = lambda results: True
+    svc._balance_results_by_set = lambda ranked, limit: [Prediction("dog", 0.8, False)]
+
+    out = svc.score_images(
+        images=(SimpleNamespace(),),
+        canonical_tags=("cat", "dog"),
+        extra_labels=(),
+        min_score=-1.0,
+        limit=1,
+    )
+
+    assert out[0][0].canonical_tag == "dog"
 
 
 def test_score_images_uses_batched_encoding() -> None:
