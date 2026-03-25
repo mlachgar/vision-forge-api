@@ -37,6 +37,10 @@ def create_app(config_dir: Path | str | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         logger.info("Starting %s v%s", context.settings.app_name, app_version)
+        try:
+            context.prediction_service.warmup()
+        except Exception:
+            logger.exception("Prediction warmup failed; continuing without preload")
         yield
 
     app = FastAPI(

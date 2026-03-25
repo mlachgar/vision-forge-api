@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from PIL import Image as PILImage
 from PIL.Image import Image
 import torch
 import torch.nn.functional as F
@@ -110,6 +111,12 @@ class PredictionService:
         for tag in self._catalog.canonical_tags():
             cache[tag] = self._get_prompt_vectors(tag)
         return cache
+
+    def warmup(self) -> None:
+        """Prime prompt caches and a tiny image forward pass for lower first-request latency."""
+        self._build_prompt_vector_cache()
+        warmup_image = PILImage.new("RGB", (1, 1), color=(0, 0, 0))
+        self._siglip.encode_image(warmup_image)
 
     def _get_prompt_vectors(self, tag: str) -> torch.Tensor:
         prompt_vectors = self._prompt_vectors.get(tag)

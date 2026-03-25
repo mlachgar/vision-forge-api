@@ -357,9 +357,14 @@ def test_create_app_and_version_resolution(
         def __init__(self, config_dir):
             calls["config_dir"] = config_dir
 
+    class _PredictionService:
+        def warmup(self) -> None:
+            calls["warmup"] = True
+
     fake_context = SimpleNamespace(
         settings=SimpleNamespace(app_name="vf"),
         version="x",
+        prediction_service=_PredictionService(),
     )
 
     monkeypatch.setattr(app_mod, "ConfigLoader", _Loader)
@@ -395,6 +400,7 @@ def test_create_app_and_version_resolution(
         assert client.get("/health").status_code == 200
 
     assert "log" in calls
+    assert calls["warmup"] is True
     monkeypatch.setattr(app_mod, "resolve_version", original_resolve_version)
 
     monkeypatch.setattr(app_mod, "pkg_version", lambda _name: "3.0.0")
