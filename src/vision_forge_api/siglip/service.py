@@ -67,10 +67,21 @@ class SiglipService:
     def encode_image(self, image: Image) -> torch.Tensor:
         return self.encode_images((image,))[0]
 
+    @staticmethod
+    def _normalize_image(image: Image) -> Image | Any:
+        if hasattr(image, "convert"):
+            return image.convert("RGB")
+        return image
+
     def encode_images(self, images: Sequence[Image]) -> torch.Tensor:
         if not images:
             return torch.empty((0, 0), device=self.device)
-        inputs = self.processor(images=list(images), return_tensors="pt", padding=True)
+        normalized_images = [self._normalize_image(image) for image in images]
+        inputs = self.processor(
+            images=normalized_images,
+            return_tensors="pt",
+            padding=True,
+        )
         pixel_values = inputs.pixel_values.to(self.device)
         with torch.no_grad():
             features = self.model.get_image_features(pixel_values=pixel_values)

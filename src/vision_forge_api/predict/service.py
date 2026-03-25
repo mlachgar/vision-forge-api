@@ -115,7 +115,7 @@ class PredictionService:
     def warmup(self) -> None:
         """Prime prompt caches and a tiny image forward pass for lower first-request latency."""
         self._build_prompt_vector_cache()
-        warmup_image = PILImage.new("RGB", (1, 1), color=(0, 0, 0))
+        warmup_image = PILImage.new("RGB", (224, 224), color=(0, 0, 0))
         self._siglip.encode_image(warmup_image)
 
     def _get_prompt_vectors(self, tag: str) -> torch.Tensor:

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import torch
 
+from vision_forge_api.predict import service as prediction_mod
 from vision_forge_api.config.schema import TagPrompt, TagSet
 from vision_forge_api.predict.service import Prediction, PredictionService
 
@@ -186,3 +187,30 @@ def test_score_images_uses_batched_encoding() -> None:
 
     assert len(out) == 2
     assert svc._siglip.encode_images_calls == 1
+
+
+def test_warmup_uses_in_memory_rgb_image(monkeypatch) -> None:
+    svc = _service()
+    seen: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        svc, "_build_prompt_vector_cache", lambda: seen.setdefault("prompt_cache", True)
+    )
+
+    def _new(mode: str, size: tuple[int, int], color=None):
+        seen["image_args"] = (mode, size, color)
+        return SimpleNamespace(mode=mode, size=size, color=color)
+
+    monkeypatch.setattr(prediction_mod.PILImage, "new", _new)
+
+    def _encode_image(image):
+        seen["warmup_image"] = image
+        return torch.tensor([1.0], dtype=torch.float32)
+
+    monkeypatch.setattr(svc._siglip, "encode_image", _encode_image)
+
+    svc.warmup()
+
+    assert seen["prompt_cache"] is True
+    assert seen["image_args"] == ("RGB", (224, 224), (0, 0, 0))
+    assert seen["warmup_image"].size == (224, 224)
