@@ -189,6 +189,20 @@ def test_score_images_uses_batched_encoding() -> None:
     assert svc._siglip.encode_images_calls == 1
 
 
+def test_build_caption_from_predictions() -> None:
+    svc = _service()
+    caption = svc.build_caption(
+        [
+            Prediction("cat", 0.9, False),
+            Prediction("dog", 0.8, False),
+            Prediction("tree", 0.7, True),
+        ]
+    )
+    assert caption == "An image showing cat, dog, and tree."
+
+    assert svc.build_caption([]) is None
+
+
 def test_warmup_uses_in_memory_rgb_image(monkeypatch) -> None:
     svc = _service()
     seen: dict[str, object] = {}

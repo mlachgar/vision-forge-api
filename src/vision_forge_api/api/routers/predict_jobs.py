@@ -27,6 +27,7 @@ class PredictJobItemResponse(BaseModel):
     filename: str
     status: str
     tags: list[PredictJobTagResult]
+    caption: str | None = None
     error: str | None = None
 
 
@@ -62,6 +63,7 @@ def _to_response(record: PredictJobRecord) -> PredictJobResponse:
                     PredictJobTagResult(label=tag, score=score)
                     for tag, score in item.tags
                 ],
+                caption=item.caption,
                 error=item.error,
             )
             for item in record.items
@@ -79,6 +81,7 @@ async def submit_predict_job(
     profile: str | None = None,
     tag_sets: str | None = None,
     extra_tags: str | None = None,
+    include_caption: bool = False,
 ) -> PredictJobResponse:
     context: AppContext = request.app.state.context
     request_service = PredictRequestService(context)
@@ -88,6 +91,7 @@ async def submit_predict_job(
         profile=profile,
         tag_sets=tag_sets,
         extra_tags=extra_tags,
+        include_caption=include_caption,
     )
     service = _service(request)
     record = await service.submit_job(

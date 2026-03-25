@@ -16,6 +16,7 @@ from fastapi import UploadFile
 
 from ..errors import BadRequestError, NotFoundError, ServiceUnavailableError
 from .predict import PreparedPredictionOptions
+from ...predict.service import Prediction
 
 if TYPE_CHECKING:
     from ..context import AppContext
@@ -50,6 +51,7 @@ class PredictJobItemResult:
     filename: str
     status: str = ITEM_STATUS_QUEUED
     tags: list[tuple[str, float]] = field(default_factory=list)
+    caption: str | None = None
     error: str | None = None
 
 
@@ -206,6 +208,7 @@ class PredictJobService:
                 ",".join(options.extra_tags),
                 str(options.limit),
                 f"{options.min_score:.6f}",
+                "caption" if options.include_caption else "no-caption",
             ]
         )
 
@@ -234,6 +237,7 @@ class PredictJobService:
                     filename=item.filename,
                     status=item.status,
                     tags=list(item.tags),
+                    caption=item.caption,
                     error=item.error,
                 )
                 for item in record.items
@@ -291,9 +295,11 @@ class PredictJobService:
         item: PredictJobItemResult,
         record: PredictJobRecord,
         predictions: Sequence[tuple[str, float]],
+        caption: str | None = None,
     ) -> None:
         item.status = ITEM_STATUS_DONE
         item.tags = list(predictions)
+        item.caption = caption
         record.completed_items += 1
         self._finalize_job(record)
 
@@ -393,17 +399,26 @@ class PredictJobService:
     def _apply_predictions(
         self,
         staged_records: list[tuple[PredictJobRecord, PredictJobItemResult]],
-        predictions: Sequence[Sequence[object]],
+        predictions: Sequence[Sequence[Prediction]],
+        include_caption: bool,
     ) -> None:
         for (record, item_record), item_predictions in zip(staged_records, predictions):
             normalized_predictions: list[tuple[str, float]] = []
             for prediction in item_predictions:
-                canonical_tag = getattr(prediction, "canonical_tag", None)
-                score = getattr(prediction, "score", None)
-                if canonical_tag is None or score is None:
-                    continue
-                normalized_predictions.append((canonical_tag, float(score)))
-            self._mark_item_done(item_record, record, normalized_predictions)
+                normalized_predictions.append(
+                    (prediction.canonical_tag, float(prediction.score))
+                )
+            caption = None
+            if include_caption:
+                caption = self._context.prediction_service.build_caption(
+                    item_predictions
+                )
+            self._mark_item_done(
+                item_record,
+                record,
+                normalized_predictions,
+                caption=caption,
+            )
 
     def _process_signature_batch(self, signature_items: Sequence[_QueuedItem]) -> None:
         options, staged_records, images = self._prepare_signature_batch(signature_items)
@@ -416,7 +431,9 @@ class PredictJobService:
             min_score=options.min_score,
             limit=options.limit,
         )
-        self._apply_predictions(staged_records, predictions)
+        self._apply_predictions(
+            staged_records, predictions, include_caption=options.include_caption
+        )
 
     def _process_batch(self, batch: list[_QueuedItem]) -> None:
         if not batch:

@@ -118,6 +118,24 @@ class PredictionService:
         warmup_image = PILImage.new("RGB", (224, 224), color=(0, 0, 0))
         self._siglip.encode_image(warmup_image)
 
+    def build_caption(
+        self, predictions: Sequence[Prediction], max_tags: int = 3
+    ) -> str | None:
+        labels = [
+            prediction.canonical_tag
+            for prediction in predictions
+            if prediction.canonical_tag.strip()
+        ][: max(1, max_tags)]
+        if not labels:
+            return None
+        if len(labels) == 1:
+            body = labels[0]
+        elif len(labels) == 2:
+            body = f"{labels[0]} and {labels[1]}"
+        else:
+            body = ", ".join(labels[:-1]) + f", and {labels[-1]}"
+        return f"An image showing {body}."
+
     def _get_prompt_vectors(self, tag: str) -> torch.Tensor:
         prompt_vectors = self._prompt_vectors.get(tag)
         if prompt_vectors is not None:

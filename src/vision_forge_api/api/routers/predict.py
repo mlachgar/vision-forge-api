@@ -30,6 +30,7 @@ class PredictMeta(BaseModel):
 class PredictResponse(BaseModel):
     tags: list[TagResult]
     meta: PredictMeta
+    caption: str | None = None
 
 
 @router.post("/predict")
@@ -42,6 +43,7 @@ async def predict(
     profile: str | None = None,
     tag_sets: str | None = None,
     extra_tags: str | None = None,
+    include_caption: bool = False,
 ) -> PredictResponse:
     context: AppContext = request.app.state.context
     request_service = PredictRequestService(context)
@@ -52,6 +54,7 @@ async def predict(
         profile=profile,
         tag_sets=tag_sets,
         extra_tags=extra_tags,
+        include_caption=include_caption,
     )
 
     predictions = context.prediction_service.score_image(
@@ -60,6 +63,11 @@ async def predict(
         extra_labels=prepared.extra_tags,
         min_score=prepared.min_score,
         limit=prepared.limit,
+    )
+    caption = (
+        context.prediction_service.build_caption(predictions)
+        if prepared.include_caption
+        else None
     )
 
     return PredictResponse(
@@ -74,4 +82,5 @@ async def predict(
             limit=prepared.limit,
             min_score=prepared.min_score,
         ),
+        caption=caption,
     )

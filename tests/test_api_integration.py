@@ -55,6 +55,10 @@ class _PredictionServiceStub:
             if 0.99 - index * 0.01 >= min_score
         ]
 
+    def build_caption(self, predictions) -> str:
+        labels = [item.canonical_tag for item in predictions[:3]]
+        return "An image showing " + ", ".join(labels)
+
 
 def _build_context(tmp_path: Path) -> SimpleNamespace:
     loader = ConfigLoader(ROOT / "config")
@@ -223,6 +227,24 @@ def test_predict_accepts_sample_images(
     )
     for item in payload["tags"]:
         assert 0.0 <= item["score"] <= 1.0
+    assert payload["caption"] is None
+
+
+def test_predict_includes_caption_when_requested(
+    client: TestClient, predict_headers: dict[str, str]
+) -> None:
+    sample_path = ROOT / "samples" / "cat.jpg"
+    response = client.post(
+        "/predict",
+        headers=predict_headers,
+        params={"limit": 3, "include_caption": True},
+        files={"file": (sample_path.name, sample_path.read_bytes(), "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["caption"] is not None
+    assert payload["caption"].startswith("An image showing ")
 
 
 def test_predict_requires_predict_role(

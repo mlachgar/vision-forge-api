@@ -91,6 +91,7 @@ def test_predict_request_service_build_request_and_validation() -> None:
         profile="default",
         tag_sets="animals",
         extra_tags="x,y",
+        include_caption=True,
     )
     assert prepared.canonical_tags == ("cat", "dog", "cat")
     assert prepared.extra_tags == ("x", "y")
@@ -98,6 +99,7 @@ def test_predict_request_service_build_request_and_validation() -> None:
     assert prepared.resolved_profile == "default"
     assert prepared.limit == 10
     assert prepared.min_score == pytest.approx(0.1)
+    assert prepared.include_caption is True
 
     default_prepared = service.build_request(
         file=_image_upload(),
@@ -109,6 +111,7 @@ def test_predict_request_service_build_request_and_validation() -> None:
     )
     assert default_prepared.canonical_tags == ("cat", "dog")
     assert default_prepared.resolved_profile == "default"
+    assert default_prepared.include_caption is False
 
     with pytest.raises(BadRequestError):
         service.build_request(
@@ -299,7 +302,8 @@ async def test_predict_router_function() -> None:
         prediction_service=SimpleNamespace(
             score_image=lambda **_kwargs: [
                 SimpleNamespace(canonical_tag="cat", score=0.77),
-            ]
+            ],
+            build_caption=lambda predictions: f"caption:{predictions[0].canonical_tag}",
         ),
     )
     request = _request(app)
@@ -319,6 +323,39 @@ async def test_predict_router_function() -> None:
     assert response.meta.profile == "default"
     assert response.meta.tag_sets == ["animals"]
     assert response.meta.extra_tags == ["extra"]
+
+
+@pytest.mark.asyncio
+async def test_predict_router_function_includes_caption() -> None:
+    app = FastAPI()
+    app.state.context = SimpleNamespace(
+        settings=SimpleNamespace(default_limit=5, max_limit=10, default_min_score=0.0),
+        tag_catalog=SimpleNamespace(
+            profile_detail=lambda _name: SimpleNamespace(canonical_tags=("cat",)),
+            resolve_canonical_tags=lambda _names: ("cat",),
+        ),
+        prediction_service=SimpleNamespace(
+            score_image=lambda **_kwargs: [
+                SimpleNamespace(canonical_tag="cat", score=0.77),
+            ],
+            build_caption=lambda predictions: f"caption:{predictions[0].canonical_tag}",
+        ),
+    )
+    request = _request(app)
+
+    response = await predict_router_mod.predict(
+        request=request,
+        file=_image_upload(),
+        limit=5,
+        min_score=0.2,
+        profile=None,
+        tag_sets="animals",
+        extra_tags="extra",
+        include_caption=True,
+        _=_api_entry(),
+    )
+
+    assert response.caption == "caption:cat"
 
 
 def test_auth_dependencies_and_wrappers() -> None:

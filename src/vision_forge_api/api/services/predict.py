@@ -23,6 +23,7 @@ class PreparedPredictionOptions:
     resolved_profile: str
     limit: int
     min_score: float
+    include_caption: bool = False
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,7 @@ class PreparedPredictionRequest:
     resolved_profile: str
     limit: int
     min_score: float
+    include_caption: bool = False
 
 
 class PredictRequestService:
@@ -51,6 +53,7 @@ class PredictRequestService:
         profile: str | None,
         tag_sets: str | None,
         extra_tags: str | None,
+        include_caption: bool = False,
     ) -> PreparedPredictionOptions:
         tag_set_names = self._split_csv(tag_sets)
         resolved_profile = profile or self.DEFAULT_PROFILE
@@ -71,6 +74,7 @@ class PredictRequestService:
             resolved_profile=resolved_profile,
             limit=limit_value,
             min_score=min_score_value,
+            include_caption=include_caption,
         )
 
     def build_request(
@@ -81,6 +85,7 @@ class PredictRequestService:
         profile: str | None,
         tag_sets: str | None,
         extra_tags: str | None,
+        include_caption: bool = False,
     ) -> PreparedPredictionRequest:
         options = self.build_options(
             limit=limit,
@@ -88,6 +93,7 @@ class PredictRequestService:
             profile=profile,
             tag_sets=tag_sets,
             extra_tags=extra_tags,
+            include_caption=include_caption,
         )
         image = self._decode_image(file)
 
@@ -99,6 +105,7 @@ class PredictRequestService:
             resolved_profile=options.resolved_profile,
             limit=options.limit,
             min_score=options.min_score,
+            include_caption=options.include_caption,
         )
 
     def _resolve_canonical_tags(

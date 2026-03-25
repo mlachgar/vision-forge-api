@@ -199,6 +199,7 @@ Set these repository settings before publishing:
 
 - Secret: `DOCKERHUB_USERNAME`
 - Secret: `DOCKERHUB_TOKEN`
+- Secret: `HF_TOKEN` for authenticated SigLIP model downloads during `cpu-full` and `gpu-full` image builds
 - Variable: `DOCKERHUB_NAMESPACE` (optional; falls back to `DOCKERHUB_USERNAME`)
 
 Image repository name is fixed to `vision-forge-api`.
@@ -272,6 +273,15 @@ Predict using the default profile:
 ```bash
 curl -s -X POST \
   "$BASE_URL/predict?limit=10" \
+  -H "Authorization: Bearer $PREDICT_TOKEN" \
+  -F "file=@samples/snail.jpg"
+```
+
+Add `include_caption=true` to return a lightweight caption alongside the tags:
+
+```bash
+curl -s -X POST \
+  "$BASE_URL/predict?limit=10&include_caption=true" \
   -H "Authorization: Bearer $PREDICT_TOKEN" \
   -F "file=@samples/snail.jpg"
 ```

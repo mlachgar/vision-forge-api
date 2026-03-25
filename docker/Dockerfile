@@ -34,13 +34,16 @@ RUN mkdir -p /config /data/embeddings /data/model_cache \
 USER app
 
 RUN python -m pip install --upgrade pip setuptools wheel \
-    && python -m pip install --user . \
-    && if [ "$BUNDLE_MODEL" = "true" ]; then \
-         PYTHONPATH=src python scripts/bundle_model.py \
-           --model-id "$SIGLIP_MODEL_ID" \
-           --model-cache-dir /data/model_cache \
-           --device cpu; \
-       fi
+    && python -m pip install --user .
+
+RUN --mount=type=secret,id=hf_token,required=false \
+    if [ "$BUNDLE_MODEL" = "true" ]; then \
+      HF_TOKEN="$(cat /run/secrets/hf_token 2>/dev/null || true)"; \
+      HUGGING_FACE_HUB_TOKEN="${HF_TOKEN}" PYTHONPATH=src python scripts/bundle_model.py \
+        --model-id "$SIGLIP_MODEL_ID" \
+        --model-cache-dir /data/model_cache \
+        --device cpu; \
+    fi
 EXPOSE 8000
 
 CMD ["vision-forge-api"]

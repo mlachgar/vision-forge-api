@@ -103,6 +103,8 @@ jobs:
           build-args: |
             DEVICE=${{ matrix.variant.device }}
             BUNDLE_MODEL=${{ matrix.variant.bundle_model }}
+          secrets: |
+            hf_token=${{ secrets.HF_TOKEN }}
           labels: |
             org.opencontainers.image.title=vision-forge-api
             org.opencontainers.image.description=Production-ready FastAPI service for image tagging using SigLIP
