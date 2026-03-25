@@ -14,6 +14,16 @@ from ..errors import BadRequestError
 
 
 @dataclass(frozen=True)
+class PreparedPredictionOptions:
+    canonical_tags: tuple[str, ...]
+    extra_tags: tuple[str, ...]
+    selected_tag_sets: tuple[str, ...]
+    resolved_profile: str
+    limit: int
+    min_score: float
+
+
+@dataclass(frozen=True)
 class PreparedPredictionRequest:
     image: Image.Image
     canonical_tags: tuple[str, ...]
@@ -32,15 +42,14 @@ class PredictRequestService:
     def __init__(self, context: AppContext) -> None:
         self._context = context
 
-    def build_request(
+    def build_options(
         self,
-        file: UploadFile,
         limit: int | None,
         min_score: float | None,
         profile: str | None,
         tag_sets: str | None,
         extra_tags: str | None,
-    ) -> PreparedPredictionRequest:
+    ) -> PreparedPredictionOptions:
         tag_set_names = self._split_csv(tag_sets)
         resolved_profile = profile or self.DEFAULT_PROFILE
         canonical_tags = self._resolve_canonical_tags(
@@ -52,16 +61,42 @@ class PredictRequestService:
         min_score_value = self._resolve_min_score(
             min_score, self._context.settings.default_min_score
         )
-        image = self._decode_image(file)
 
-        return PreparedPredictionRequest(
-            image=image,
+        return PreparedPredictionOptions(
             canonical_tags=canonical_tags,
             extra_tags=extras,
             selected_tag_sets=tuple(tag_set_names),
             resolved_profile=resolved_profile,
             limit=limit_value,
             min_score=min_score_value,
+        )
+
+    def build_request(
+        self,
+        file: UploadFile,
+        limit: int | None,
+        min_score: float | None,
+        profile: str | None,
+        tag_sets: str | None,
+        extra_tags: str | None,
+    ) -> PreparedPredictionRequest:
+        options = self.build_options(
+            limit=limit,
+            min_score=min_score,
+            profile=profile,
+            tag_sets=tag_sets,
+            extra_tags=extra_tags,
+        )
+        image = self._decode_image(file)
+
+        return PreparedPredictionRequest(
+            image=image,
+            canonical_tags=options.canonical_tags,
+            extra_tags=options.extra_tags,
+            selected_tag_sets=options.selected_tag_sets,
+            resolved_profile=options.resolved_profile,
+            limit=options.limit,
+            min_score=options.min_score,
         )
 
     def _resolve_canonical_tags(

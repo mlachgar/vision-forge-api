@@ -56,6 +56,10 @@ python3 -m pip install ".[dev]"
   - rerank top canonical candidates with prompt-level max similarity
 - For the broad default profile, a light per-set balancing penalty is applied to reduce single-set dominance.
 - Scores are normalized to `0.0..1.0` before filtering and returning. Default `min_score` is configured in `config/settings.yaml`.
+- `/predict/jobs` accepts multiple photos and processes them through a small in-memory micro-batch queue.
+  - use it when you want higher throughput on photo bursts
+  - keep `/predict` for single-image, immediate responses
+  - queued jobs are not persisted across process restarts in this version
 
 ## Helper Scripts
 

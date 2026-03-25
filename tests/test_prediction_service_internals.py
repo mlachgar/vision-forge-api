@@ -45,6 +45,7 @@ class _SiglipStub:
     def __init__(self):
         self.model_id = "model-1"
         self.device = torch.device("cpu")
+        self.encode_images_calls = 0
 
     def encode_texts(self, texts):
         rows = []
@@ -53,7 +54,14 @@ class _SiglipStub:
         return torch.stack(rows, dim=0)
 
     def encode_image(self, _image):
-        return torch.tensor([[1.0, 0.5]], dtype=torch.float32)
+        return self.encode_images((_image,))[0]
+
+    def encode_images(self, images):
+        self.encode_images_calls += 1
+        rows = []
+        for i, _ in enumerate(images):
+            rows.append(torch.tensor([1.0 + i, 0.5 + i], dtype=torch.float32))
+        return torch.stack(rows, dim=0)
 
 
 def _service() -> PredictionService:
@@ -164,3 +172,17 @@ def test_score_image_full_flow() -> None:
         limit=5,
     )
     assert empty == []
+
+
+def test_score_images_uses_batched_encoding() -> None:
+    svc = _service()
+    out = svc.score_images(
+        images=(SimpleNamespace(), SimpleNamespace()),
+        canonical_tags=("cat", "dog"),
+        extra_labels=("bonus",),
+        min_score=-1.0,
+        limit=2,
+    )
+
+    assert len(out) == 2
+    assert svc._siglip.encode_images_calls == 1

@@ -9,6 +9,9 @@ class _SiglipStub:
     def encode_image(self, _):
         return torch.tensor([[1.0]], dtype=torch.float32)
 
+    def encode_images(self, images):
+        return torch.stack([self.encode_image(image)[0] for image in images], dim=0)
+
 
 def test_balance_results_by_set_penalizes_dominant_set() -> None:
     service = object.__new__(PredictionService)

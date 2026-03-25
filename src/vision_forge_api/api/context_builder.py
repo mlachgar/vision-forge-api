@@ -10,6 +10,7 @@ from ..config.loader import ConfigLoader
 from ..predict.service import PredictionService
 from ..siglip.service import SiglipService
 from .context import AppContext
+from .services.predict_jobs import PredictJobService
 
 
 def build_context(loader: ConfigLoader, app_version: str) -> AppContext:
@@ -26,7 +27,7 @@ def build_context(loader: ConfigLoader, app_version: str) -> AppContext:
         settings.siglip_model_id, settings.model_cache_dir, device_hint=device_hint
     )
     prediction_service = PredictionService(tag_catalog, siglip, settings.embeddings_dir)
-    return AppContext(
+    context = AppContext(
         loader=loader,
         settings=settings,
         auth_config=auth_config,
@@ -39,3 +40,6 @@ def build_context(loader: ConfigLoader, app_version: str) -> AppContext:
         siglip_service=siglip,
         prediction_service=prediction_service,
     )
+    prediction_job_service = PredictJobService(context)
+    object.__setattr__(context, "prediction_job_service", prediction_job_service)
+    return context

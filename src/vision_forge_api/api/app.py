@@ -16,6 +16,7 @@ from .routers.admin import router as admin_router
 from .routers.catalog import router as catalog_router
 from .routers.health import router as health_router
 from .routers.predict import router as predict_router
+from .routers.predict_jobs import router as predict_jobs_router
 
 
 CONFIG_VERSION = "0.1.0"
@@ -41,7 +42,13 @@ def create_app(config_dir: Path | str | None = None) -> FastAPI:
             context.prediction_service.warmup()
         except Exception:
             logger.exception("Prediction warmup failed; continuing without preload")
-        yield
+        if context.prediction_job_service is not None:
+            await context.prediction_job_service.start()
+        try:
+            yield
+        finally:
+            if context.prediction_job_service is not None:
+                await context.prediction_job_service.stop()
 
     app = FastAPI(
         title=context.settings.app_name,
@@ -54,6 +61,7 @@ def create_app(config_dir: Path | str | None = None) -> FastAPI:
     app.include_router(health_router)
     app.include_router(catalog_router)
     app.include_router(predict_router)
+    app.include_router(predict_jobs_router)
     app.include_router(admin_router)
 
     return app

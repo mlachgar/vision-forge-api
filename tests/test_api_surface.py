@@ -361,10 +361,18 @@ def test_create_app_and_version_resolution(
         def warmup(self) -> None:
             calls["warmup"] = True
 
+    class _JobService:
+        async def start(self) -> None:
+            calls["job_start"] = True
+
+        async def stop(self) -> None:
+            calls["job_stop"] = True
+
     fake_context = SimpleNamespace(
         settings=SimpleNamespace(app_name="vf"),
         version="x",
         prediction_service=_PredictionService(),
+        prediction_job_service=_JobService(),
     )
 
     monkeypatch.setattr(app_mod, "ConfigLoader", _Loader)
@@ -401,6 +409,8 @@ def test_create_app_and_version_resolution(
 
     assert "log" in calls
     assert calls["warmup"] is True
+    assert calls["job_start"] is True
+    assert calls["job_stop"] is True
     monkeypatch.setattr(app_mod, "resolve_version", original_resolve_version)
 
     monkeypatch.setattr(app_mod, "pkg_version", lambda _name: "3.0.0")

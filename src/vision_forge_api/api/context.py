@@ -11,6 +11,7 @@ from ..config.loader import ConfigLoader
 from ..config.schema import AuthConfig, SettingsConfig
 from ..predict.service import PredictionService
 from ..siglip.service import SiglipService
+from .services.predict_jobs import PredictJobService
 
 
 @dataclass(frozen=True)
@@ -25,4 +26,5 @@ class AppContext:
     api_key_repo: ApiKeyRepository
     siglip_service: SiglipService
     prediction_service: PredictionService
+    prediction_job_service: PredictJobService | None = None
     config_dir: Path | None = None

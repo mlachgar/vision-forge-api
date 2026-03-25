@@ -321,3 +321,45 @@ class PredictionService:
         if self._crosses_multiple_sets(results):
             results = self._balance_results_by_set(results, limit)
         return results[: max(1, limit)]
+
+    def score_images(
+        self,
+        images: Sequence[Image],
+        canonical_tags: Sequence[str],
+        extra_labels: Sequence[str],
+        min_score: float,
+        limit: int,
+    ) -> list[list[Prediction]]:
+        if not images:
+            return []
+        all_vectors, all_labels, all_is_extra, canonical_sources = (
+            self._prepare_candidates(
+                canonical_tags=canonical_tags, extra_labels=extra_labels
+            )
+        )
+        if not all_vectors:
+            return [[] for _ in images]
+
+        image_vectors = self._siglip.encode_images(images)
+        candidate_tensor = torch.stack(all_vectors, dim=0)
+        score_matrix = torch.matmul(image_vectors, candidate_tensor.T)
+
+        results: list[list[Prediction]] = []
+        for image_idx, image_vector in enumerate(image_vectors):
+            score_values = score_matrix[image_idx].tolist()
+            self._rerank_top_canonical(
+                score_values=score_values,
+                canonical_sources=canonical_sources,
+                image_vector=image_vector.unsqueeze(0),
+                limit=limit,
+            )
+            item_results = self._build_predictions(
+                all_labels=all_labels,
+                all_is_extra=all_is_extra,
+                score_values=score_values,
+                min_score=min_score,
+            )
+            if self._crosses_multiple_sets(item_results):
+                item_results = self._balance_results_by_set(item_results, limit)
+            results.append(item_results[: max(1, limit)])
+        return results

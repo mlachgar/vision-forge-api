@@ -2,8 +2,9 @@
 
 Vision Forge API is a FastAPI service for image tagging powered by SigLIP.
 It scores uploaded images against config-driven canonical tag sets and
-prediction profiles, with bearer API key authentication and a small admin
-surface for key management and config reloads.
+prediction profiles, with bearer API key authentication, a small admin
+surface for key management and config reloads, and an async batch job path for
+high-volume photo analysis.
 
 ## Features
 
@@ -12,8 +13,10 @@ surface for key management and config reloads.
 - Config-driven tag sets, profiles, and prompt templates
 - Bearer API key auth with `admin` and `predict` roles
 - `/predict` scoring with cached text embeddings
+- `/predict/jobs` batch submission with in-memory micro-batching
 - Prompt-level reranking for canonical tags
 - Light set-balancing when a profile spans multiple tag sets
+- Startup warmup for lower first-request latency
 - Admin endpoints for API key CRUD and live config reload
 - Docker image variants for CPU and GPU builds
 
@@ -58,12 +61,19 @@ Expected content:
 The service will create or refresh missing embedding cache entries on startup
 when needed.
 
+The prediction model is loaded during startup and the app warms the prediction
+pipeline before serving requests. Batch jobs are queued in memory, so they are
+fast for live processing but are not durable across process restarts.
+
 ## API Surface
 
 - `GET /health`
 - `GET /tag-sets`
 - `GET /profiles`
 - `POST /predict`
+- `POST /predict/jobs`
+- `GET /predict/jobs/{job_id}`
+- `DELETE /predict/jobs/{job_id}`
 - `GET /admin/api-keys`
 - `POST /admin/api-keys`
 - `PATCH /admin/api-keys/{name}`
@@ -81,6 +91,15 @@ query parameters:
 
 Returned scores are normalized to the `0.0..1.0` range.
 
+The batch job endpoint accepts multiple uploaded images in one request and
+returns a `202 Accepted` response with a job id. Poll the job endpoint until
+the job reaches a terminal state:
+
+- `done`
+- `partial`
+- `failed`
+- `canceled`
+
 ## Prediction Behavior
 
 The prediction pipeline does the following:
@@ -93,6 +112,11 @@ The prediction pipeline does the following:
 5. Sorts by score descending
 6. Applies the requested `limit`
 7. Balances results lightly across tag sets when a profile spans multiple sets
+
+For batch jobs, the app groups multiple photos into small server-side batches
+to reduce per-photo overhead and improve throughput. The client should use the
+job endpoint for large imports and keep `POST /predict` for single-image
+requests.
 
 ## Docker Images
 
@@ -141,3 +165,20 @@ docker run --rm -it \
   mlachgar/vision-forge-api:cpu-full
 ```
 
+Batch job example:
+
+```bash
+curl -s -X POST \
+  "http://127.0.0.1:8000/predict/jobs?tag_sets=animals&limit=10" \
+  -H "Authorization: Bearer vfk_predict_token_87654321fedcba" \
+  -F "files=@samples/cat.jpg" \
+  -F "files=@samples/snail.jpg"
+```
+
+Poll the job:
+
+```bash
+curl -s \
+  "http://127.0.0.1:8000/predict/jobs/<job_id>" \
+  -H "Authorization: Bearer vfk_predict_token_87654321fedcba"
+```
